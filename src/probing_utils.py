@@ -18,6 +18,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 N_LAYERS_MISTRAL = 32
 N_LAYER_LLAMA = 32
 
+# Define layer paths for standard HuggingFace model structure
 LAYERS_TO_TRACE_MISTRAL = {
     'mlp': [f"model.layers.{i}.mlp" for i in range(N_LAYERS_MISTRAL)],
     'mlp_last_layer_only': [f"model.layers.{i}.mlp.down_proj" for i in range(N_LAYERS_MISTRAL)],
@@ -34,16 +35,34 @@ LAYERS_TO_TRACE_LLAMA = {
     'attention_output': [f"model.layers.{i}.self_attn.o_proj" for i in range(N_LAYER_LLAMA)],
 }
 
+# Define layer paths for Unsloth model structure
+LAYERS_TO_TRACE_MISTRAL_UNSLOTH = {
+    'mlp': [f"base_model.model.model.layers.{i}.mlp" for i in range(N_LAYERS_MISTRAL)],
+    'mlp_last_layer_only': [f"base_model.model.model.layers.{i}.mlp.down_proj" for i in range(N_LAYERS_MISTRAL)],
+    'mlp_last_layer_only_input': [f"base_model.model.model.layers.{i}.mlp.down_proj" for i in range(N_LAYERS_MISTRAL)],
+    'attention_heads': [f"base_model.model.model.layers.{i}.self_attn.o_proj" for i in range(N_LAYERS_MISTRAL)],
+    'attention_output': [f"base_model.model.model.layers.{i}.self_attn.o_proj" for i in range(N_LAYERS_MISTRAL)],
+}
+
+LAYERS_TO_TRACE_LLAMA_UNSLOTH = {
+    'mlp': [f"base_model.model.model.layers.{i}.mlp" for i in range(N_LAYER_LLAMA)],
+    'mlp_last_layer_only': [f"base_model.model.model.layers.{i}.mlp.down_proj" for i in range(N_LAYER_LLAMA)],
+    'mlp_last_layer_only_input': [f"base_model.model.model.layers.{i}.mlp.down_proj" for i in range(N_LAYER_LLAMA)],
+    'attention_heads': [f"base_model.model.model.layers.{i}.self_attn.o_proj" for i in range(N_LAYER_LLAMA)],
+    'attention_output': [f"base_model.model.model.layers.{i}.self_attn.o_proj" for i in range(N_LAYER_LLAMA)],
+}
+
+# Combined mapping for all model types
 LAYERS_TO_TRACE = {
     'mistralai/Mistral-7B-Instruct-v0.2': LAYERS_TO_TRACE_MISTRAL,
     'mistralai/Mistral-7B-v0.3': LAYERS_TO_TRACE_MISTRAL,
     'meta-llama/Meta-Llama-3-8B-Instruct': LAYERS_TO_TRACE_LLAMA,
     'meta-llama/Meta-Llama-3-8B': LAYERS_TO_TRACE_LLAMA,
-    'unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit': LAYERS_TO_TRACE_LLAMA,
-    'unsloth/Meta-Llama-3.1-8B-bnb-4bit': LAYERS_TO_TRACE_LLAMA,
-    'unsloth/mistral-7b-instruct-v0.3-bnb-4bit': LAYERS_TO_TRACE_MISTRAL,
-    'unsloth/mistral-7b-v0.3-bnb-4bit': LAYERS_TO_TRACE_MISTRAL,
-    'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': LAYERS_TO_TRACE_LLAMA,
+    'unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit': LAYERS_TO_TRACE_LLAMA_UNSLOTH,
+    'unsloth/Meta-Llama-3.1-8B-bnb-4bit': LAYERS_TO_TRACE_LLAMA_UNSLOTH,
+    'unsloth/mistral-7b-instruct-v0.3-bnb-4bit': LAYERS_TO_TRACE_MISTRAL_UNSLOTH,
+    'unsloth/mistral-7b-v0.3-bnb-4bit': LAYERS_TO_TRACE_MISTRAL_UNSLOTH,
+    'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': LAYERS_TO_TRACE_LLAMA_UNSLOTH,
 }
 
 N_LAYERS = {
@@ -282,10 +301,20 @@ def get_mlp_output(ret, layers_to_trace, probe_at):
 def get_attention_output(model, ret, layers_to_trace, probe_at):
     attention_output_per_layer = []
     for k in layers_to_trace:
+        # Handle different model structures
+        if hasattr(model, 'base_model') and hasattr(model.base_model, 'model') and hasattr(model.base_model.model, 'model'):
+            # Unsloth model structure
+            num_heads = model.base_model.model.model.layers[0].self_attn.num_heads
+            head_dim = model.base_model.model.model.layers[0].self_attn.head_dim
+        else:
+            # Standard HuggingFace model structure
+            num_heads = model.model.layers[0].self_attn.num_heads
+            head_dim = model.model.layers[0].self_attn.head_dim
+            
         heads_per_token = ret[k].output.reshape(ret[k].input.shape[0],
                                                 ret[k].input.shape[1],
-                                                model.model.layers[0].self_attn.num_heads,
-                                                model.model.layers[0].self_attn.head_dim).transpose(1, 2)
+                                                num_heads,
+                                                head_dim).transpose(1, 2)
         attention_output = ret[k].output.squeeze().cpu()
         attention_output_per_layer.append(attention_output)
 
@@ -350,6 +379,7 @@ def load_model_and_validate_gpu(model_path, tokenizer_path=None):
                 load_in_4bit=load_in_4bit,
                 # token="hf_..."  # Uncomment and add token if using gated models
             )
+            model = FastLanguageModel.get_peft_model(model, None, None)
             FastLanguageModel.for_inference(model)
             
             print(f"Successfully loaded {model_path} with Unsloth!")
@@ -360,17 +390,22 @@ def load_model_and_validate_gpu(model_path, tokenizer_path=None):
             subprocess.call(['pip', 'install', 'unsloth'])
             
             # Try again after installation
-            from unsloth import FastLanguageModel
-            import torch
-            
-            model, _ = FastLanguageModel.from_pretrained(
-                model_name=model_path,
-                max_seq_length=2048,
-                dtype=None,
-                load_in_4bit=True,
-            )
-            FastLanguageModel.for_inference(model)
-            return model, tokenizer
+            try:
+                from unsloth import FastLanguageModel
+                import torch
+                
+                model, _ = FastLanguageModel.from_pretrained(
+                    model_name=model_path,
+                    max_seq_length=2048,
+                    dtype=None,
+                    load_in_4bit=True,
+                )
+                model = FastLanguageModel.get_peft_model(model, None, None)
+                FastLanguageModel.for_inference(model)
+                return model, tokenizer
+            except Exception as e:
+                print(f"Failed to load model with Unsloth after installation: {e}")
+                print("Falling back to regular HuggingFace loading method...")
         except Exception as e:
             print(f"Failed to load model with Unsloth: {e}")
             print("Falling back to regular HuggingFace loading method...")
