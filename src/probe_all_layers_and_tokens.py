@@ -21,8 +21,8 @@ def parse_args_and_init_wandb():
     parser.add_argument("--probe_at", choices=LIST_OF_PROBING_LOCATIONS)
     parser.add_argument("--seed", type=int)
     parser.add_argument("--n_samples", default=1000, help="Usually you would limit to 1000 due to memory constraints")
-    parser.add_argument("--dataset", choices=LIST_OF_DATASETS,
-                        required=True)
+    parser.add_argument("--dataset", 
+                        required=True)  # Removed choices restriction to allow custom datasets
     parser.add_argument("--use_mlp", action='store_true', default=False)
 
     args = parser.parse_args()
@@ -120,6 +120,15 @@ def main():
     if args.dataset == 'imdb':
         tokens_to_probe = ['last_q_token', 'exact_answer_first_token', 'exact_answer_last_token', 'exact_answer_after_last_token',
                            -8, -7, -6, -5, -4, -3, -2, -1]
+    elif args.dataset == 'luis_suarez':
+        # Custom tokens for stance detection task
+        tokens_to_probe = ['last_q_token', 'first_answer_token', 'second_answer_token',
+                           'exact_answer_first_token', 'exact_answer_last_token',
+                           -8, -7, -6, -5, -4, -3, -2, -1]
+        
+        # Ensure the data has valid_exact_answer column
+        if 'valid_exact_answer' not in data.columns:
+            data['valid_exact_answer'] = data['exact_answer'].notna().astype(int)
     else:
         tokens_to_probe = ['last_q_token', 'first_answer_token', 'second_answer_token',
                            'exact_answer_before_first_token',
@@ -129,8 +138,15 @@ def main():
     training_data_indices, validation_data_indices = compile_probing_indices(data, args.n_samples,
                                                                              args.seed)
 
+    # Check if the model exists in N_LAYERS, if not use a default
+    if args.model not in N_LAYERS:
+        print(f"Warning: Model {args.model} not found in N_LAYERS dictionary. Using default layer count of 32.")
+        num_layers = 32
+    else:
+        num_layers = N_LAYERS[args.model]
+
     all_metrics = probe_all(model, tokenizer, data, input_output_ids, tokens_to_probe,
-                            range(0, N_LAYERS[args.model]),
+                            range(0, num_layers),
                             training_data_indices,
                             validation_data_indices, args.probe_at, args.seed,
                             args.model, use_dict_for_tokens=True)
