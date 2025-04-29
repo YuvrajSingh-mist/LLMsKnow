@@ -22,10 +22,10 @@ def parse_args():
                         choices=LIST_OF_MODELS,
                         required=True)
     parser.add_argument("--dataset",
-                        choices=LIST_OF_DATASETS)
+                        choices=LIST_OF_DATASETS + ['luis_suarez'])
     parser.add_argument("--verbose", action='store_true', help='print more information')
     parser.add_argument("--n_samples", type=int, help='number of examples to use', default=None)
-
+    parser.add_argument("--excel_file", type=str, help='path to Luis Suarez excel file for stance detection', default=None)
 
     return parser.parse_args()
 
@@ -385,10 +385,16 @@ def winogrande_preprocess(model_name, all_questions, labels):
         return new_questions
     return all_questions
 
-def load_data(dataset_name):
+def load_data(dataset_name, excel_file=None):
     max_new_tokens = 100
     context, origin, stereotype, type_, wrong_labels = None, None, None, None, None
-    if dataset_name == 'triviaqa':
+    
+    if dataset_name == 'luis_suarez':
+        if excel_file is None:
+            raise ValueError("For luis_suarez dataset, --excel_file must be provided")
+        all_questions, labels = load_luis_suarez_data(excel_file)
+        preprocess_fn = None  # Already preprocessed in load_luis_suarez_data
+    elif dataset_name == 'triviaqa':
         all_questions, labels = load_data_triviaqa(False)
         preprocess_fn = triviqa_preprocess
     elif dataset_name == 'triviaqa_test':
@@ -460,6 +466,31 @@ def load_data(dataset_name):
         raise TypeError("data type is not supported")
     return all_questions, context, labels, max_new_tokens, origin, preprocess_fn, stereotype, type_, wrong_labels
 
+def load_luis_suarez_data(excel_file):
+    """Load and prepare data from the Luis Suarez Excel file for stance detection"""
+    from prepare_luis_suarez_data import prepare_alpaca_prompt
+    
+    print(f"Loading Luis Suarez data from: {excel_file}")
+    
+    # Read the Excel file
+    df = pd.read_excel(excel_file)
+    
+    # System instruction for stance detection
+    system_instruction = ("You are provided with an input. You are required to perform stance detection "
+                         "on the input with output as one of the following labels - Favor, Against, "
+                         "Irrelevant, Neutral. The labels are self-explanatory. Remember to only use the labels provided "
+                         "and do not mispell its name. Only output the stance detected label and nothing else.")
+    
+    # Extract text and labels
+    texts = df['Text'].dropna().tolist()
+    labels = df['Label'].dropna().tolist()
+    
+    # Prepare prompts with Alpaca format
+    prompts = [prepare_alpaca_prompt(system_instruction, text) for text in texts]
+    
+    return prompts, labels
+
+
 def main():
     args = parse_args()
     init_wandb(args)
@@ -472,7 +503,7 @@ def main():
     stop_token_id = None
     if 'instruct' not in args.model.lower():
         stop_token_id = tokenizer.encode('\n', add_special_tokens=False)[-1]
-    all_questions, context, labels, max_new_tokens, origin, preprocess_fn, stereotype, type_, wrong_labels = load_data(args.dataset)
+    all_questions, context, labels, max_new_tokens, origin, preprocess_fn, stereotype, type_, wrong_labels = load_data(args.dataset, args.excel_file)
 
     if not os.path.exists('/kaggle/working'):
         os.makedirs('/kaggle/working')

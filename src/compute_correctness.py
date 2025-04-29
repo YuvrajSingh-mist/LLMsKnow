@@ -221,45 +221,55 @@ def compute_correctness_natual_questions(all_questions, model_answers, labels, m
 
     return {"correctness": correctness}
 
-def compute_correctness_winogrande(model_answers, labels, wrong_labels, model_name):
+def compute_correctness_luis_suarez(model_answers, labels):
+    """Compute correctness for stance detection task (Luis Suarez dataset)"""
     correctness = []
     exact_answers = []
-
-    for model_answer, label, wrong_label in zip(model_answers, labels, wrong_labels):
-        if 'llama' in model_name.lower() and 'A)' in model_answer: # The model answer is in the format A) <answer> B) <Answer> ...
-            # find the part with the answer
-            ans_idx = model_answer.lower().find('answer')
-            if ans_idx != -1:
-                exact_ans = model_answer[ans_idx+len('answer'):]
-                exact_ans = exact_ans.strip()
-                if exact_ans.startswith(':'):
-                    exact_ans = exact_ans[1:]
-                exact_ans = exact_ans.strip()
-                if exact_ans.startswith('is'):
-                    exact_ans = exact_ans[2:]
-                exact_ans = exact_ans.strip()
-                exact_ans = exact_ans.split('.')[0]
-                model_answer = exact_ans
-                print('After cleaning:', exact_ans)
-
-
-        correct_ans_index = model_answer.lower().find(label.lower())
-        wrong_ans_index = model_answer.lower().find(wrong_label.lower())
-        if correct_ans_index != -1 and (wrong_ans_index == -1 or correct_ans_index < wrong_ans_index):
-            correctness.append(1)
-            exact_answers.append(model_answer[correct_ans_index:correct_ans_index + len(label)])
-        else:
-            correctness.append(0)
-            if wrong_ans_index == -1:
-                print("Problem in answer!")
-                print(model_answer, label, wrong_label)
-                exact_answers.append('NO ANSWER')
-            else:
-                exact_answers.append(model_answer[wrong_ans_index:wrong_ans_index + len(wrong_label)])
-    return {"correct_labels": labels, "incorrect_answer": wrong_labels, "correctness": correctness, "exact_answer": exact_answers}
+    
+    valid_labels = ["Favor", "Against", "Irrelevant", "Neutral"]
+    
+    for model_answer, correct_label in zip(model_answers, labels):
+        # Extract the predicted label from the Alpaca format response
+        # The model should return just the label, but we'll handle edge cases
+        extracted_label = None
+        
+        # First try to use the regex-based extraction function
+        import re
+        match = re.search(r'### Response:\s*(\w+)', model_answer)
+        if match:
+            extracted_label = match.group(1)
+        
+        # If regex fails, try other extraction methods
+        if not extracted_label:
+            # Look for the label in the answer
+            model_answer_clean = model_answer.strip()
+            for label in valid_labels:
+                if label in model_answer_clean:
+                    extracted_label = label
+                    break
+        
+        # If still no label found, try with lowercase variation
+        if not extracted_label:
+            model_answer_lower = model_answer_clean.lower()
+            for label in valid_labels:
+                if label.lower() in model_answer_lower:
+                    extracted_label = label
+                    break
+        
+        # Check if the extracted label matches the correct one
+        is_correct = 0
+        if extracted_label and extracted_label == correct_label:
+            is_correct = 1
+        
+        correctness.append(is_correct)
+        exact_answers.append(extracted_label if extracted_label else "NO ANSWER")
+    
+    return {"correctness": correctness, "exact_answer": exact_answers}
 
 def compute_correctness(all_questions, dataset_name, model_name, labels, model, model_answers, tokenizer, wrong_labels):
-    if 'natural_questions' in dataset_name:
+    if dataset_name == 'luis_suarez':
+        res = compute_correctness_luis_suarez(model_answers, labels)
+    elif 'natural_questions' in dataset_name:
         if model == 'mistralai/Mistral-7B-Instruct-v0.2':
             res = compute_correctness_natual_questions(all_questions, model_answers, labels, model=model,
                                                                tokenizer=tokenizer)
@@ -287,5 +297,6 @@ CORRECTNESS_FN = {
     'math': compute_correctness_math,
     'movies': compute_correctness_movies,
     'mnli': compute_correctness_nli,
-    'natural_questions_with_context': compute_correctness_natual_questions
+    'natural_questions_with_context': compute_correctness_natual_questions,
+    'luis_suarez': compute_correctness_luis_suarez
 }
