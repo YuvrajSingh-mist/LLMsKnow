@@ -36,7 +36,7 @@ def parse_args_and_init_wandb():
 def load_logits(model_name, dataset, load_test=False):
     print("Loading logits")
     logits_test = None
-    train_logits_path = f"../output/{MODEL_FRIENDLY_NAMES[model_name]}-scores-{dataset}.pt"
+    train_logits_path = f"/kaggle/working/{MODEL_FRIENDLY_NAMES[model_name]}-scores-{dataset}.pt"
     if not os.path.exists(train_logits_path):
         print(f"File {train_logits_path} does not exist. Please run the training script first.")
         return
@@ -47,7 +47,7 @@ def load_logits(model_name, dataset, load_test=False):
         print(f"Error loading logits: {e}")
         return
     if load_test:
-        logits_test = torch.load(f"../output/{MODEL_FRIENDLY_NAMES[model_name]}-scores-{dataset}_test.pt")
+        logits_test = torch.load(f"/kaggle/working/{MODEL_FRIENDLY_NAMES[model_name]}-scores-{dataset}_test.pt")
     print("Loaded logits")
 
     return logits, logits_test
@@ -56,15 +56,15 @@ def load_logits(model_name, dataset, load_test=False):
 def load_input_output_ids(model_name, dataset, load_test=False):
     print("Loading input_output_ids")
     input_output_ids_test = None
-    input_output_ids_path = f"../output/{MODEL_FRIENDLY_NAMES[model_name]}-input_output_ids-{dataset}.pt"
+    input_output_ids_path = f"/kaggle/working/{MODEL_FRIENDLY_NAMES[model_name]}-input_output_ids-{dataset}.pt"
     if not os.path.exists(input_output_ids_path):
         print(f"File {input_output_ids_path} does not exist. Please run the training script first.")
         return
     input_output_ids = torch.load(
-        f"../output/{MODEL_FRIENDLY_NAMES[model_name]}-input_output_ids-{dataset}.pt")
+        f"/kaggle/working/{MODEL_FRIENDLY_NAMES[model_name]}-input_output_ids-{dataset}.pt")
     if load_test:
         input_output_ids_test = torch.load(
-            f"../output/{MODEL_FRIENDLY_NAMES[model_name]}-input_output_ids-{dataset}_test.pt")
+            f"/kaggle/working/{MODEL_FRIENDLY_NAMES[model_name]}-input_output_ids-{dataset}_test.pt")
     print("Loaded input_output_ids")
     return input_output_ids, input_output_ids_test
 
@@ -72,9 +72,9 @@ def load_input_output_ids(model_name, dataset, load_test=False):
 def main():
     print("Starting detection by logprob")
     args = parse_args_and_init_wandb()
-    model_output_file = f"../output/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
+    model_output_file = f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
     data = pd.read_csv(model_output_file)
-    model_output_file_test = f"../output/mistral-7b-instruct-answers-{args.dataset}_test.csv"
+    model_output_file_test = f"/kaggle/working/mistral-7b-instruct-answers-{args.dataset}_test.csv"
     load_test = False
     if os.path.isfile(model_output_file_test):
         data_test = pd.read_csv(model_output_file_test)

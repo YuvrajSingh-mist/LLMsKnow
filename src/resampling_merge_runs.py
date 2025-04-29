@@ -19,11 +19,11 @@ dataset = args.dataset
 for name in names:
     outputs = []
     for i in range (1, 7):
-        path =  f"../output/resampling/{model}_{dataset}_5_{name}_{i}.pt"
+        path =  f"/kaggle/working/resampling/{model}_{dataset}_5_{name}_{i}.pt"
         print("loaded ", path)
         output = torch.load(path)
         outputs.extend(output)
     print(len(outputs))
 
     n_total_resamples = len(outputs)
-    torch.save(outputs, f"../output/resampling/{model}_{dataset}_{n_total_resamples}_{name}.pt")
+    torch.save(outputs, f"/kaggle/working/resampling/{model}_{dataset}_{n_total_resamples}_{name}.pt")

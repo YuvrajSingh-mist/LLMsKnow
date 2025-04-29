@@ -83,7 +83,7 @@ def main():
     args = parse_args_and_init_wandb()
     model, tokenizer = load_model_and_validate_gpu(args.model)
 
-    data = pd.read_csv(f"../output/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}_test.csv")
+    data = pd.read_csv(f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}_test.csv")
     if args.n_samples is not None:
         data = data.sample(n=int(args.n_samples))
 

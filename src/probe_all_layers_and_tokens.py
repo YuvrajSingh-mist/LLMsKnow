@@ -110,11 +110,11 @@ def log_metrics(all_metrics, tokens_to_probe):
 def main():
     args = parse_args_and_init_wandb()
     set_seed(args.seed)
-    model_output_file = f"../output/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
+    model_output_file = f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
     data = pd.read_csv(model_output_file)
 
     input_output_ids = torch.load(
-        f"../output/{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{args.dataset}.pt")
+        f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{args.dataset}.pt")
     model, tokenizer = load_model_and_validate_gpu(args.model)
 
     if args.dataset == 'imdb':

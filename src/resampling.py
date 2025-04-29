@@ -38,7 +38,7 @@ def parse_args_and_init_wandb():
     return args
 
 def main(args):
-    model_output_file = f"../output/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
+    model_output_file = f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
     data = pd.read_csv(model_output_file).reset_index(drop=True)
 
     if args.limit_samples is not None:
@@ -103,18 +103,18 @@ def main(args):
     wandb.log({f"correctness": wandb.Image("temp_fig1.png")})
     os.remove("temp_fig1.png")
 
-    if not os.path.exists("../output/resampling"):
-        os.makedirs("../output/resampling")
+    if not os.path.exists("/kaggle/working/resampling"):
+        os.makedirs("/kaggle/working/resampling")
 
-    torch.save(all_textual_answers, f"../output/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_textual_answers{args.tag}.pt")
-    torch.save(all_input_output_ids, f"../output/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_input_output_ids{args.tag}.pt")
+    torch.save(all_textual_answers, f"/kaggle/working/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_textual_answers{args.tag}.pt")
+    torch.save(all_input_output_ids, f"/kaggle/working/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_input_output_ids{args.tag}.pt")
 
     if len(all_exact_answers['exact_answer']) != 0:
         all_exact_answers['exact_answer'] = [[all_exact_answers['exact_answer'][i][j] for i in range(0, args.n_resamples)] for j in
                                       range(0, len(data))]
         all_exact_answers['valid_exact_answer'] = [[all_exact_answers['valid_exact_answer'][i][j] for i in range(0, args.n_resamples)] for j in
                                       range(0, len(data))]
-        torch.save(all_exact_answers, f"../output/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_exact_answers{args.tag}.pt")
+        torch.save(all_exact_answers, f"/kaggle/working/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_exact_answers{args.tag}.pt")
 
 if __name__ == "__main__":
     args = parse_args_and_init_wandb()

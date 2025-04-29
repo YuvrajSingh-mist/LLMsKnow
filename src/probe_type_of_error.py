@@ -160,17 +160,17 @@ def main():
 
     args = parse_args_and_init_wandb()
 
-    textual_answers = torch.load(f"../output/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_textual_answers.pt")
-    exact_answers = torch.load(f"../output/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_exact_answers.pt")
-    model_output_greedy = pd.read_csv(f'../output/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv')
+    textual_answers = torch.load(f"/kaggle/working/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_textual_answers.pt")
+    exact_answers = torch.load(f"/kaggle/working/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_exact_answers.pt")
+    model_output_greedy = pd.read_csv(f'/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv')
     input_output_ids_greedy = torch.load(
-            f"../output/{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{args.dataset}.pt")
+            f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{args.dataset}.pt")
 
-    textual_answers_test = torch.load(f"../output/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_test_{args.n_resamples}_textual_answers.pt")
-    exact_answers_test = torch.load(f"../output/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_test_{args.n_resamples}_exact_answers.pt")
-    model_output_greedy_test = pd.read_csv(f'../output/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}_test.csv')
+    textual_answers_test = torch.load(f"/kaggle/working/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_test_{args.n_resamples}_textual_answers.pt")
+    exact_answers_test = torch.load(f"/kaggle/working/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_test_{args.n_resamples}_exact_answers.pt")
+    model_output_greedy_test = pd.read_csv(f'/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}_test.csv')
     input_output_ids_greedy_test = torch.load(
-            f"../output/{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{args.dataset}_test.pt")
+            f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{args.dataset}_test.pt")
 
     error_stats = get_error_stats(textual_answers, exact_answers, model_output_greedy, CORRECTNESS_FN['triviaqa'])
     error_stats = pd.DataFrame.from_dict(error_stats)

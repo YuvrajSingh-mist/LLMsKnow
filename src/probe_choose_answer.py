@@ -136,7 +136,7 @@ def main():
 
     model, tokenizer = load_model_and_validate_gpu(args.model)
 
-    model_output_file = f"../output/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
+    model_output_file = f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
     model_output_greedy = pd.read_csv(model_output_file).reset_index(drop=True)
     model_output_greedy = model_output_greedy[model_output_greedy['valid_exact_answer'] == 1]
 
@@ -144,12 +144,12 @@ def main():
     print("Greedy correctness", model_output_greedy.automatic_correctness.mean())
 
     textual_answers = torch.load(
-        f"../output/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_textual_answers.pt")
+        f"/kaggle/working/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_textual_answers.pt")
     textual_answers = [[textual_answers[j][i] for i in model_output_greedy.index] for j in range(args.n_resamples)]
     n_questions = len(model_output_greedy) if args.n_samples is None else args.n_samples
 
     exact_answers_and_validity = torch.load(
-        f"../output/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_exact_answers.pt")
+        f"/kaggle/working/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_exact_answers.pt")
     exact_answers_and_validity['exact_answer'] = [[exact_answers_and_validity['exact_answer'][i][j] for j in range(0, args.n_resamples)] for i in model_output_greedy.index]
     exact_answers_and_validity['valid_exact_answer'] = [[exact_answers_and_validity['valid_exact_answer'][i][j] for j in range(0, args.n_resamples)] for i in model_output_greedy.index]
 
@@ -161,7 +161,7 @@ def main():
                                                range(0, args.n_resamples)]
 
     input_output_ids = torch.load(
-        f"../output/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_input_output_ids.pt")
+        f"/kaggle/working/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}_{args.n_resamples}_input_output_ids.pt")
     input_output_ids = [[input_output_ids[j][i] for i in model_output_greedy.index] for j in range(args.n_resamples)]
 
     probe_checkpoint = f'../checkpoints/clf_{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset.replace("_test", "")}_layer-{args.layer}_token-{args.token}.pkl'
@@ -249,7 +249,7 @@ def main():
         error_stats[idx]["majority_correctness"] = correctness_with_majority[idx]
         error_stats[idx]["chosen_answer_full_probe"] = chosen_answer_full[idx]
     pd.DataFrame.from_dict(error_stats).to_csv(
-        f"../output/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}-{args.n_resamples}_clusters.csv")
+        f"/kaggle/working/resampling/{MODEL_FRIENDLY_NAMES[args.model]}_{args.dataset}-{args.n_resamples}_clusters.csv")
 
 
 if __name__ == "__main__":
