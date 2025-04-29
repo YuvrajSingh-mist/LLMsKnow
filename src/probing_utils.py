@@ -39,6 +39,11 @@ LAYERS_TO_TRACE = {
     'mistralai/Mistral-7B-v0.3': LAYERS_TO_TRACE_MISTRAL,
     'meta-llama/Meta-Llama-3-8B-Instruct': LAYERS_TO_TRACE_LLAMA,
     'meta-llama/Meta-Llama-3-8B': LAYERS_TO_TRACE_LLAMA,
+    'unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit': LAYERS_TO_TRACE_LLAMA,
+    'unsloth/Meta-Llama-3.1-8B-bnb-4bit': LAYERS_TO_TRACE_LLAMA,
+    'unsloth/mistral-7b-instruct-v0.3-bnb-4bit': LAYERS_TO_TRACE_MISTRAL,
+    'unsloth/mistral-7b-v0.3-bnb-4bit': LAYERS_TO_TRACE_MISTRAL,
+    'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': LAYERS_TO_TRACE_LLAMA,
 }
 
 N_LAYERS = {
@@ -46,6 +51,11 @@ N_LAYERS = {
     'mistralai/Mistral-7B-v0.3': N_LAYERS_MISTRAL,
     'meta-llama/Meta-Llama-3-8B-Instruct': N_LAYER_LLAMA,
     'meta-llama/Meta-Llama-3-8B': N_LAYER_LLAMA,
+    'unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit': N_LAYER_LLAMA,
+    'unsloth/Meta-Llama-3.1-8B-bnb-4bit': N_LAYER_LLAMA,
+    'unsloth/mistral-7b-instruct-v0.3-bnb-4bit': N_LAYERS_MISTRAL,
+    'unsloth/mistral-7b-v0.3-bnb-4bit': N_LAYERS_MISTRAL,
+    'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': N_LAYER_LLAMA,
 }
 
 HIDDEN_SIZE = {
@@ -56,6 +66,11 @@ HIDDEN_SIZE = {
     'meta-llama/Meta-Llama-3-8B': 8192,
     'google/gemma-7b': 3072,
     'google/gemma-7b-it': 3072,
+    'unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit': 8192,
+    'unsloth/Meta-Llama-3.1-8B-bnb-4bit': 8192,
+    'unsloth/mistral-7b-instruct-v0.3-bnb-4bit': 4096,
+    'unsloth/mistral-7b-v0.3-bnb-4bit': 4096,
+    'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': 8192,
 }
 
 LIST_OF_DATASETS = ['triviaqa',
@@ -72,16 +87,26 @@ LIST_OF_DATASETS = ['triviaqa',
 LIST_OF_TEST_DATASETS = [f"{x}_test" for x in LIST_OF_DATASETS]
 
 LIST_OF_MODELS = ['mistralai/Mistral-7B-Instruct-v0.2',
-                                            'mistralai/Mistral-7B-v0.3',
-                                            'meta-llama/Meta-Llama-3-8B',
-                                            'meta-llama/Meta-Llama-3-8B-Instruct',
-                                            ]
+                  'mistralai/Mistral-7B-v0.3',
+                  'meta-llama/Meta-Llama-3-8B',
+                  'meta-llama/Meta-Llama-3-8B-Instruct',
+                  'unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit',
+                  'unsloth/Meta-Llama-3.1-8B-bnb-4bit',
+                  'unsloth/mistral-7b-instruct-v0.3-bnb-4bit',
+                  'unsloth/mistral-7b-v0.3-bnb-4bit',
+                  'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez',
+                 ]
 
 MODEL_FRIENDLY_NAMES = {
     'mistralai/Mistral-7B-Instruct-v0.2': 'mistral-7b-instruct',
     'mistralai/Mistral-7B-v0.3': 'mistral-7b',
     'meta-llama/Meta-Llama-3-8B': 'llama-3-8b',
     'meta-llama/Meta-Llama-3-8B-Instruct': 'llama-3-8b-instruct',
+    'unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit': 'llama-3.1-8b-instruct-fast',
+    'unsloth/Meta-Llama-3.1-8B-bnb-4bit': 'llama-3.1-8b-fast',
+    'unsloth/mistral-7b-instruct-v0.3-bnb-4bit': 'mistral-7b-instruct-fast',
+    'unsloth/mistral-7b-v0.3-bnb-4bit': 'mistral-7b-fast',
+    'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': 'llama-3.1-luis-suarez',
 }
 
 LIST_OF_PROBING_LOCATIONS = ['mlp', 'mlp_last_layer_only', 'mlp_last_layer_only_input', 'attention_output']
@@ -306,6 +331,51 @@ def load_model_and_validate_gpu(model_path, tokenizer_path=None):
         tokenizer_path = model_path
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
     print("Started loading model")
+    
+    # Check if we should use Unsloth for faster inferencing
+    if any(unsloth_model in model_path for unsloth_model in ["unsloth/", "YuvrajSingh9886/"]):
+        try:
+            from unsloth import FastLanguageModel
+            import torch
+            
+            print("Loading model with Unsloth for faster inferencing...")
+            max_seq_length = 2048  # Can be adjusted as needed
+            dtype = None  # Auto detection: Float16 for Tesla T4, V100, Bfloat16 for Ampere+
+            load_in_4bit = True  # Use 4bit quantization to reduce memory usage
+            
+            model, _ = FastLanguageModel.from_pretrained(
+                model_name=model_path,
+                max_seq_length=max_seq_length,
+                dtype=dtype,
+                load_in_4bit=load_in_4bit,
+                # token="hf_..."  # Uncomment and add token if using gated models
+            )
+            FastLanguageModel.for_inference(model)
+            
+            print(f"Successfully loaded {model_path} with Unsloth!")
+            return model, tokenizer
+        except ImportError:
+            print("Unsloth not installed. Installing unsloth package...")
+            import subprocess
+            subprocess.call(['pip', 'install', 'unsloth'])
+            
+            # Try again after installation
+            from unsloth import FastLanguageModel
+            import torch
+            
+            model, _ = FastLanguageModel.from_pretrained(
+                model_name=model_path,
+                max_seq_length=2048,
+                dtype=None,
+                load_in_4bit=True,
+            )
+            FastLanguageModel.for_inference(model)
+            return model, tokenizer
+        except Exception as e:
+            print(f"Failed to load model with Unsloth: {e}")
+            print("Falling back to regular HuggingFace loading method...")
+    
+    # Original HuggingFace loading method
     model = AutoModelForCausalLM.from_pretrained(model_path, device_map='auto',
                                                  torch_dtype=torch.bfloat16, low_cpu_mem_usage=True)
     assert ('cpu' not in model.hf_device_map.values())
