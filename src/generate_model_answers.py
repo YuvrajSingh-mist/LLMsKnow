@@ -475,6 +475,13 @@ def load_luis_suarez_data(excel_file):
     # Read the Excel file
     df = pd.read_excel(excel_file)
     
+    # Display column names to help debug
+    print("Available columns in Excel file:", df.columns.tolist())
+    
+    # Use the correct column names
+    text_column = 'Comment'
+    label_column = 'Llama3.1 Fine Tuned output'
+    
     # System instruction for stance detection
     system_instruction = ("You are provided with an input. You are required to perform stance detection "
                          "on the input with output as one of the following labels - Favor, Against, "
@@ -482,8 +489,15 @@ def load_luis_suarez_data(excel_file):
                          "and do not mispell its name. Only output the stance detected label and nothing else.")
     
     # Extract text and labels
-    texts = df['Text'].dropna().tolist()
-    labels = df['Label'].dropna().tolist()
+    texts = df[text_column].dropna().tolist()
+    labels = df[label_column].dropna().tolist()
+    
+    print(f"Loaded {len(texts)} texts and {len(labels)} labels")
+    
+    # Ensure we have the same number of texts and labels
+    min_len = min(len(texts), len(labels))
+    texts = texts[:min_len]
+    labels = labels[:min_len]
     
     # Prepare prompts with Alpaca format
     prompts = [prepare_alpaca_prompt(system_instruction, text) for text in texts]
