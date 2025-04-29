@@ -42,8 +42,8 @@ def convert_excel_to_qna(excel_file, output_file, system_instruction):
         # Extract necessary fields from the Excel
         # Adjust these column names based on your Excel structure
         try:
-            text = row.get('Text', '')
-            label = row.get('Label', '')
+            text = row.get('Comment', '')
+            label = row.get('Llama3.1 Fine Tuned output', '')
             
             # Skip empty rows
             if not isinstance(text, str) or not text.strip():
