@@ -287,6 +287,43 @@ def compute_correctness(all_questions, dataset_name, model_name, labels, model, 
         res = CORRECTNESS_FN[dataset_name.replace("_test", "")](model_answers, labels)
     return res
 
+def compute_correctness_winogrande(model_answers, labels, wrong_labels, model_name=None):
+    correctness = []
+    exact_answers = []
+
+    for model_answer, label, wrong_label in zip(model_answers, labels, wrong_labels):
+        if model_name and 'llama' in model_name.lower() and 'A)' in model_answer: # The model answer is in the format A) <answer> B) <Answer> ...
+            # find the part with the answer
+            ans_idx = model_answer.lower().find('answer')
+            if ans_idx != -1:
+                exact_ans = model_answer[ans_idx+len('answer'):]
+                exact_ans = exact_ans.strip()
+                if exact_ans.startswith(':'):
+                    exact_ans = exact_ans[1:]
+                exact_ans = exact_ans.strip()
+                if exact_ans.startswith('is'):
+                    exact_ans = exact_ans[2:]
+                exact_ans = exact_ans.strip()
+                exact_ans = exact_ans.split('.')[0]
+                model_answer = exact_ans
+                print('After cleaning:', exact_ans)
+
+        correct_ans_index = model_answer.lower().find(label.lower())
+        wrong_ans_index = model_answer.lower().find(wrong_label.lower())
+        if correct_ans_index != -1 and (wrong_ans_index == -1 or correct_ans_index < wrong_ans_index):
+            correctness.append(1)
+            exact_answers.append(model_answer[correct_ans_index:correct_ans_index + len(label)])
+        else:
+            correctness.append(0)
+            if wrong_ans_index == -1:
+                print("Problem in answer!")
+                print(model_answer, label, wrong_label)
+                exact_answers.append('NO ANSWER')
+            else:
+                exact_answers.append(model_answer[wrong_ans_index:wrong_ans_index + len(wrong_label)])
+                
+    return {"correct_labels": labels, "incorrect_answer": wrong_labels, "correctness": correctness, "exact_answer": exact_answers}
+
 CORRECTNESS_FN = {
     'triviaqa': compute_correctness_triviaqa,
     'imdb': compute_correctness_imdb,
