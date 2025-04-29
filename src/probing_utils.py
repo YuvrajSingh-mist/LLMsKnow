@@ -379,7 +379,7 @@ def load_model_and_validate_gpu(model_path, tokenizer_path=None):
                 load_in_4bit=load_in_4bit,
                 # token="hf_..."  # Uncomment and add token if using gated models
             )
-            model = FastLanguageModel.get_peft_model(model, None, None)
+            # model = FastLanguageModel.get_peft_model(model, None, None)
             FastLanguageModel.for_inference(model)
             
             print(f"Successfully loaded {model_path} with Unsloth!")
@@ -400,7 +400,7 @@ def load_model_and_validate_gpu(model_path, tokenizer_path=None):
                     dtype=None,
                     load_in_4bit=True,
                 )
-                model = FastLanguageModel.get_peft_model(model, None, None)
+                # model = FastLanguageModel.get_peft_model(model, None, None)
                 FastLanguageModel.for_inference(model)
                 return model, tokenizer
             except Exception as e:
