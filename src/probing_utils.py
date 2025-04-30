@@ -601,9 +601,16 @@ def compile_probing_indices(data, n_samples, seed, n_validation_samples=0):
 
 
 def get_probing_layer_names(probe_at, model_name):
+    # Handle special cases for MLP
     if probe_at in ['mlp_last_layer_only', 'mlp_last_layer_only_input']:
-        probe_at = 'mlp'
-    layers_to_trace = LAYERS_TO_TRACE[model_name][probe_at]
+        probe_at_key = 'mlp'
+    # Handle special cases for attention
+    elif probe_at in ['attention_output', 'attention_heads']:
+        probe_at_key = probe_at
+    else:
+        probe_at_key = probe_at
+        
+    layers_to_trace = LAYERS_TO_TRACE[model_name][probe_at_key]
     return layers_to_trace
 
 
