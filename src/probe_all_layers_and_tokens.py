@@ -88,37 +88,90 @@ def log_metrics(all_metrics, tokens_to_probe):
         results_pd = pd.DataFrame.from_dict(dict_of_results)
         lst_of_results.sort(key=lambda x: x[1], reverse=True)
 
-        plt.figure()
+        plt.figure(figsize=(12, 10))
         if metric_name == 'auc':
             center = 0.5
         else:
             center = 0
-        ax = sns.heatmap(results_pd, annot=False, cmap='Blues', vmin=center, vmax=1.0)
+        ax = sns.heatmap(results_pd, annot=True, cmap='Blues', vmin=center, vmax=1.0)
         plt.xlabel('Token')
         plt.ylabel('Layer')
-        ax.figure.savefig(f"{wandb.run.name}_temp_fig.png", bbox_inches="tight")
-        wandb.log({f"{metric_name}_heatmap": wandb.Image(f"{wandb.run.name}_temp_fig.png")})
+        
+        # Save locally with timestamp to avoid overwriting
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        local_file_path = f"heatmap_{metric_name}_{timestamp}.png"
+        ax.figure.savefig(local_file_path, bbox_inches="tight")
+        print(f"Saved heatmap for {metric_name} to {local_file_path}")
+        
+        # Also save results as CSV
+        local_csv_path = f"results_{metric_name}_{timestamp}.csv"
+        results_pd.to_csv(local_csv_path, index=True)
+        print(f"Saved results for {metric_name} to {local_csv_path}")
+        
+        # Print top 5 results for this metric
+        print(f"\nTop 5 results for {metric_name}:")
         for rank in range(0, 5):
-            wandb.summary[f"{metric_name}_top_{rank + 1}"] = {"layer": lst_of_results[rank][0][0],
-                                                              "token": lst_of_results[rank][0][1],
-                                                              "value": lst_of_results[rank][1]}
+            layer = lst_of_results[rank][0][0]
+            token = lst_of_results[rank][0][1]
+            value = lst_of_results[rank][1]
+            print(f"  {rank+1}. Layer: {layer}, Token: {token}, Value: {value:.4f}")
+        
+        # Continue with wandb logging if available
+        try:
+            wandb_file = f"{wandb.run.name}_temp_fig.png"
+            ax.figure.savefig(wandb_file, bbox_inches="tight")
+            wandb.log({f"{metric_name}_heatmap": wandb.Image(wandb_file)})
+            for rank in range(0, 5):
+                wandb.summary[f"{metric_name}_top_{rank + 1}"] = {"layer": lst_of_results[rank][0][0],
+                                                                  "token": lst_of_results[rank][0][1],
+                                                                  "value": lst_of_results[rank][1]}
 
-        results_pd.to_csv(f"{wandb.run.name}_temp_df.csv", index=False)
-        artifact = wandb.Artifact(name=f"{metric_name}_df", type="dataframe")
-        artifact.add_file(local_path=f"{wandb.run.name}_temp_df.csv")
-        wandb.log_artifact(artifact)
+            results_pd.to_csv(f"{wandb.run.name}_temp_df.csv", index=False)
+            artifact = wandb.Artifact(name=f"{metric_name}_df", type="dataframe")
+            artifact.add_file(local_path=f"{wandb.run.name}_temp_df.csv")
+            wandb.log_artifact(artifact)
 
-        os.remove(f"{wandb.run.name}_temp_fig.png")
-        os.remove(f"{wandb.run.name}_temp_df.csv")
+            os.remove(f"{wandb.run.name}_temp_fig.png")
+            os.remove(f"{wandb.run.name}_temp_df.csv")
+        except Exception as e:
+            print(f"Warning: Weights & Biases logging failed: {str(e)}")
+
 
 def main():
     args = parse_args_and_init_wandb()
     set_seed(args.seed)
-    model_output_file = f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
+    
+    # Use local paths instead of Kaggle paths
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    model_output_file = f"{base_dir}/{MODEL_FRIENDLY_NAMES[args.model] if args.model in MODEL_FRIENDLY_NAMES else 'llama-3.1'}-answers-{args.dataset}.csv"
+    
+    # Check if specific file exists first
+    if not os.path.exists(model_output_file):
+        # Fall back to files in the current directory that match the dataset
+        csv_files = [f for f in os.listdir(base_dir) if f.endswith(f'-{args.dataset}.csv')]
+        if csv_files:
+            model_output_file = f"{base_dir}/{csv_files[0]}"
+            print(f"Using found CSV file: {model_output_file}")
+        else:
+            print(f"Warning: Could not find a CSV file for dataset {args.dataset}")
+    
+    print(f"Loading data from: {model_output_file}")
     data = pd.read_csv(model_output_file)
-
-    input_output_ids = torch.load(
-        f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{args.dataset}.pt")
+    
+    # Check if PT file exists
+    pt_file = f"{base_dir}/{MODEL_FRIENDLY_NAMES[args.model] if args.model in MODEL_FRIENDLY_NAMES else 'llama-3.1'}-input_output_ids-{args.dataset}.pt"
+    if not os.path.exists(pt_file):
+        pt_files = [f for f in os.listdir(base_dir) if f.endswith(f'-input_output_ids-{args.dataset}.pt')]
+        if pt_files:
+            pt_file = f"{base_dir}/{pt_files[0]}"
+            print(f"Using found PT file: {pt_file}")
+        else:
+            print(f"Warning: Could not find a PT file for dataset {args.dataset}")
+    
+    print(f"Loading input_output_ids from: {pt_file}")
+    input_output_ids = torch.load(pt_file)
+    
     model, tokenizer = load_model_and_validate_gpu(args.model)
 
     if args.dataset == 'imdb':

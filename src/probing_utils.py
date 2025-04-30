@@ -301,23 +301,92 @@ def get_mlp_output(ret, layers_to_trace, probe_at):
 def get_attention_output(model, ret, layers_to_trace, probe_at):
     attention_output_per_layer = []
     for k in layers_to_trace:
-        # Handle different model structures
-        if hasattr(model, 'base_model') and hasattr(model.base_model, 'model') and hasattr(model.base_model.model, 'model'):
-            # Unsloth model structure
-            num_heads = model.base_model.model.model.layers[0].self_attn.num_heads
-            head_dim = model.base_model.model.model.layers[0].self_attn.head_dim
-        else:
-            # Standard HuggingFace model structure
-            num_heads = model.model.layers[0].self_attn.num_heads
-            head_dim = model.model.layers[0].self_attn.head_dim
-            
-        heads_per_token = ret[k].output.reshape(ret[k].input.shape[0],
-                                                ret[k].input.shape[1],
-                                                num_heads,
-                                                head_dim).transpose(1, 2)
-        attention_output = ret[k].output.squeeze().cpu()
-        attention_output_per_layer.append(attention_output)
+        try:
+            # Try different paths to access the attention configuration
+            if hasattr(model, 'base_model') and hasattr(model.base_model, 'model') and hasattr(model.base_model.model, 'model'):
+                # This is the path for Unsloth/LoRA models
+                attn_layer = model.base_model.model.model.layers[0].self_attn
+                
+                # Try various ways to get the num_heads
+                if hasattr(attn_layer, 'num_heads'):
+                    num_heads = attn_layer.num_heads
+                    head_dim = attn_layer.head_dim
+                elif hasattr(attn_layer, 'n_heads'):
+                    num_heads = attn_layer.n_heads
+                    head_dim = attn_layer.head_dim if hasattr(attn_layer, 'head_dim') else getattr(attn_layer, 'head_size', 128)
+                elif hasattr(attn_layer, 'num_attention_heads'):
+                    num_heads = attn_layer.num_attention_heads
+                    head_dim = attn_layer.head_dim if hasattr(attn_layer, 'head_dim') else getattr(attn_layer, 'head_size', 128)
+                elif hasattr(attn_layer, 'num_key_value_heads'):
+                    # For models with grouped attention
+                    num_heads = attn_layer.num_key_value_heads
+                    head_dim = attn_layer.head_dim if hasattr(attn_layer, 'head_dim') else getattr(attn_layer, 'head_size', 128)
+                else:
+                    # For LoRA models we can infer from the q_proj dimensions
+                    if hasattr(attn_layer, 'q_proj') and hasattr(attn_layer.q_proj, 'base_layer'):
+                        q_weight = attn_layer.q_proj.base_layer.weight
+                        hidden_size = q_weight.shape[0]
+                        # Use standard values for Llama-3.1-8B
+                        num_heads = 32  # Typical for Llama-3.1-8B
+                        head_dim = hidden_size // num_heads
+                    else:
+                        # Fallback to default Llama-3 values
+                        model_name = None
+                        for name in N_LAYERS:
+                            if name in str(model):
+                                model_name = name
+                                break
+                        
+                        if model_name and model_name in HIDDEN_SIZE:
+                            hidden_size = HIDDEN_SIZE[model_name]
+                            num_heads = 32  # Default for Llama-3
+                            head_dim = hidden_size // num_heads
+                        else:
+                            # Last resort fallback
+                            num_heads = 32  # Default for Llama-3.1-8B
+                            head_dim = 256  # 8192/32 for Llama-3.1-8B
+            else:
+                # Standard HuggingFace model structure
+                attn_layer = model.model.layers[0].self_attn
+                if hasattr(attn_layer, 'num_heads'):
+                    num_heads = attn_layer.num_heads
+                    head_dim = attn_layer.head_dim
+                elif hasattr(attn_layer, 'n_heads'):
+                    num_heads = attn_layer.n_heads
+                    head_dim = attn_layer.head_dim if hasattr(attn_layer, 'head_dim') else getattr(attn_layer, 'head_size', 128)
+                elif hasattr(attn_layer, 'num_attention_heads'):
+                    num_heads = attn_layer.num_attention_heads
+                    head_dim = attn_layer.head_dim if hasattr(attn_layer, 'head_dim') else getattr(attn_layer, 'head_size', 128)
+                else:
+                    # Fallback to model configuration
+                    model_name = None
+                    for name in N_LAYERS:
+                        if name in str(model):
+                            model_name = name
+                            break
+                    
+                    if model_name and model_name in HIDDEN_SIZE:
+                        hidden_size = HIDDEN_SIZE[model_name]
+                        num_heads = 32  # Default for Llama-3
+                        head_dim = hidden_size // num_heads
+                    else:
+                        # Last resort fallback
+                        num_heads = 32  # Default for Llama-3.1-8B
+                        head_dim = 256  # 8192/32 for Llama-3.1-8B
 
+            # Reshape and process the attention output
+            heads_per_token = ret[k].output.reshape(ret[k].input.shape[0],
+                                                   ret[k].input.shape[1],
+                                                   num_heads,
+                                                   head_dim).transpose(1, 2)
+            attention_output = ret[k].output.squeeze().cpu()
+            attention_output_per_layer.append(attention_output)
+        
+        except Exception as e:
+            print(f"Warning: Error processing attention layer {k}: {str(e)}")
+            # Fallback - just return the raw output without reshaping
+            attention_output = ret[k].output.squeeze().cpu()
+            attention_output_per_layer.append(attention_output)
 
     return attention_output_per_layer
 
