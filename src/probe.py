@@ -156,21 +156,21 @@ def main():
 
     data_test = None
     input_output_ids_test = None
-    model_output_file = f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
+    model_output_file = f"./{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
     data = pd.read_csv(model_output_file).reset_index()
     input_output_ids = torch.load(
-        f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{args.dataset}.pt")
+        f"./{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{args.dataset}.pt")
 
     if args.test_dataset is not None:
         test_dataset = args.test_dataset
     else:
         test_dataset = args.dataset
-    model_output_file_test = f"/kaggle/working/mistral-7b-instruct-answers-{test_dataset}_test.csv"
+    model_output_file_test = f"./mistral-7b-instruct-answers-{test_dataset}_test.csv"
     load_test = False
     if os.path.isfile(model_output_file_test):
         data_test = pd.read_csv(model_output_file_test)
         input_output_ids_test = torch.load(
-            f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{test_dataset}_test.pt")
+            f"./{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{test_dataset}_test.pt")
         load_test = True
 
     if args.save_clf:
