@@ -457,8 +457,52 @@ def probe_specific_layer_token(extracted_embeddings_train, extracted_embeddings_
                                       questions_valid, model_name, full_answer_tokenized_valid, exact_answer_valid,
                                       validity_exact_answer_valid,
                                       use_dict=use_dict_for_tokens)
-
-    clf = LogisticRegression(random_state=seed).fit(X_train, y_train)
+    
+    # Check class balance
+    pos_count = sum(y_train)
+    neg_count = len(y_train) - pos_count
+    class_weight = None
+    
+    # If significant imbalance detected, apply class weighting
+    if pos_count / len(y_train) < 0.2 or pos_count / len(y_train) > 0.8:
+        print(f"Class imbalance detected: {pos_count}/{len(y_train)} positive examples")
+        class_weight = {0: 1.0 / neg_count if neg_count > 0 else 1.0, 
+                      1: 1.0 / pos_count if pos_count > 0 else 1.0}
+        class_weight = {k: v * len(y_train) / 2.0 for k, v in class_weight.items()}
+        print(f"Using class weights: {class_weight}")
+    
+    try:
+        # Use increased max_iter and solver='liblinear' which often works better for small/imbalanced datasets
+        clf = LogisticRegression(
+            random_state=seed, 
+            class_weight=class_weight,
+            max_iter=1000,
+            solver='liblinear',
+            tol=1e-4
+        ).fit(X_train, y_train)
+        
+        # If all predictions are the same class, try a different solver
+        if len(set(clf.predict(X_valid))) == 1:
+            print(f"Warning: All predictions are the same class. Trying different solver...")
+            clf = LogisticRegression(
+                random_state=seed,
+                class_weight=class_weight, 
+                max_iter=2000,
+                solver='saga',
+                penalty='l1',
+                tol=1e-3
+            ).fit(X_train, y_train)
+    except Exception as e:
+        print(f"Error fitting logistic regression: {e}. Using fallback classifier with balanced class weights.")
+        # Fallback to a more stable configuration
+        clf = LogisticRegression(
+            random_state=seed,
+            class_weight='balanced',
+            max_iter=2000, 
+            solver='saga',
+            penalty='l1',
+            tol=1e-3
+        ).fit(X_train, y_train)
 
     return compute_metrics_probing(clf, X_valid, y_valid, pos_label=0)
 

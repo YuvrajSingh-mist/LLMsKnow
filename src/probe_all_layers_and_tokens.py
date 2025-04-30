@@ -40,6 +40,10 @@ def probe_all(model, tokenizer, data, input_output_ids, tokens_to_probe, layers_
     _, _, input_output_ids_train, input_output_ids_valid, y_train, y_valid, exact_answer_train, exact_answer_valid, \
     validity_of_exact_answer_train, validity_of_exact_answer_valid, questions_train, questions_valid = prepare_for_probing(
         data, input_output_ids, training_data_indices, validation_data_indices)
+    
+    # Print class distribution to help debug class imbalance issues
+    print(f"Class distribution in training data: {sum(y_train)}/{len(y_train)} positive examples")
+    print(f"Class distribution in validation data: {sum(y_valid)}/{len(y_valid)} positive examples")
 
     extracted_embeddings_train = \
         extract_internal_reps_all_layers_and_tokens(model, input_output_ids_train, probe_at, model_name)
