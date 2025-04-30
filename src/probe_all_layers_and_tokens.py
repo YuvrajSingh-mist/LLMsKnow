@@ -143,7 +143,7 @@ def main():
     set_seed(args.seed)
     
     # Use local paths instead of Kaggle paths
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = '/kaggle/working'
     model_output_file = f"{base_dir}/{MODEL_FRIENDLY_NAMES[args.model] if args.model in MODEL_FRIENDLY_NAMES else 'llama-3.1'}-answers-{args.dataset}.csv"
     
     # Check if specific file exists first
