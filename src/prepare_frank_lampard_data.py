@@ -15,7 +15,7 @@ from probing_utils import MODEL_FRIENDLY_NAMES, tokenize, encode
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Prepare the Frank Lampard Ghost Goal dataset for analysis")
-    parser.add_argument("--model", default="YuvrajSingh9886/Llama-3.1-8b-Frank-Lampard", 
+    parser.add_argument("--model", default="YuvrajSingh9886/Llama3.1-8b-Frank-Lampard", 
                         help="Model to use for tokenization")
     return parser.parse_args()
 

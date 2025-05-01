@@ -63,7 +63,7 @@ LAYERS_TO_TRACE = {
     'unsloth/mistral-7b-instruct-v0.3-bnb-4bit': LAYERS_TO_TRACE_MISTRAL_UNSLOTH,
     'unsloth/mistral-7b-v0.3-bnb-4bit': LAYERS_TO_TRACE_MISTRAL_UNSLOTH,
     'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': LAYERS_TO_TRACE_LLAMA_UNSLOTH,
-    "YuvrajSingh9886/Llama-3.1-8b-Frank-Lampard": LAYERS_TO_TRACE_LLAMA_UNSLOTH,
+    "YuvrajSingh9886/Llama3.1-8b-Frank-Lampard": LAYERS_TO_TRACE_LLAMA_UNSLOTH,
 }
 
 N_LAYERS = {
@@ -76,7 +76,7 @@ N_LAYERS = {
     'unsloth/mistral-7b-instruct-v0.3-bnb-4bit': N_LAYERS_MISTRAL,
     'unsloth/mistral-7b-v0.3-bnb-4bit': N_LAYERS_MISTRAL,
     'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': N_LAYER_LLAMA,
-    "YuvrajSingh9886/Llama-3.1-8b-Frank-Lampard": N_LAYER_LLAMA,
+    "YuvrajSingh9886/Llama3.1-8b-Frank-Lampard": N_LAYER_LLAMA,
 }
 
 HIDDEN_SIZE = {
@@ -92,7 +92,7 @@ HIDDEN_SIZE = {
     'unsloth/mistral-7b-instruct-v0.3-bnb-4bit': 4096,
     'unsloth/mistral-7b-v0.3-bnb-4bit': 4096,
     'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': 8192,
-    "YuvrajSingh9886/Llama-3.1-8b-Frank-Lampard": 8192,
+    "YuvrajSingh9886/Llama3.1-8b-Frank-Lampard": 8192,
 }
 
 LIST_OF_DATASETS = ['triviaqa',
@@ -119,7 +119,7 @@ LIST_OF_MODELS = ['mistralai/Mistral-7B-Instruct-v0.2',
                   'unsloth/mistral-7b-instruct-v0.3-bnb-4bit',
                   'unsloth/mistral-7b-v0.3-bnb-4bit',
                   'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez',
-                  "YuvrajSingh9886/Llama-3.1-8b-Frank-Lampard",
+                  "YuvrajSingh9886/Llama3.1-8b-Frank-Lampard",
                  ]
 
 MODEL_FRIENDLY_NAMES = {
@@ -132,7 +132,7 @@ MODEL_FRIENDLY_NAMES = {
     'unsloth/mistral-7b-instruct-v0.3-bnb-4bit': 'mistral-7b-instruct-fast',
     'unsloth/mistral-7b-v0.3-bnb-4bit': 'mistral-7b-fast',
     'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': 'llama-3.1-luis-suarez',
-    'YuvrajSingh9886/Llama-3.1-8b-Frank-Lampard': 'llama-3.1-frank-lampard'
+    'YuvrajSingh9886/Llama3.1-8b-Frank-Lampard': 'llama-3.1-frank-lampard'
 }
 
 LIST_OF_PROBING_LOCATIONS = ['mlp', 'mlp_last_layer_only', 'mlp_last_layer_only_input', 'attention_output']
