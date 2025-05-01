@@ -104,7 +104,9 @@ LIST_OF_DATASETS = ['triviaqa',
                     'movies',
                     'mnli',
                     'natural_questions_with_context',
-                    'winogrande']
+                    'winogrande',
+                    'luis_suarez',
+                    'frank_lampard']
 
 LIST_OF_TEST_DATASETS = [f"{x}_test" for x in LIST_OF_DATASETS]
 
