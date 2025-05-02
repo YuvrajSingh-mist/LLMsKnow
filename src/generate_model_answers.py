@@ -22,7 +22,8 @@ def parse_args():
                         choices=LIST_OF_MODELS,
                         required=True)
     parser.add_argument("--dataset",
-                        choices=LIST_OF_DATASETS + ['luis_suarez'] + ['frank_lampard'])
+                        choices=LIST_OF_DATASETS,
+                        help='Dataset to use for generating answers')
     parser.add_argument("--verbose", action='store_true', help='print more information')
     parser.add_argument("--n_samples", type=int, help='number of examples to use', default=None)
     parser.add_argument("--excel_file", type=str, help='path to Excel file for stance detection', default=None)
@@ -399,6 +400,11 @@ def load_data(dataset_name, excel_file=None):
             raise ValueError("For frank_lampard dataset, --excel_file must be provided")
         all_questions, labels = load_frank_lampard_data(excel_file)
         preprocess_fn = None  # Already preprocessed in load_frank_lampard_data
+    elif dataset_name == 'maradona':
+        if excel_file is None:
+            raise ValueError("For maradona dataset, --excel_file must be provided")
+        all_questions, labels = load_maradona_data(excel_file)
+        preprocess_fn = None  # Already preprocessed in load_maradona_data
     elif dataset_name == 'triviaqa':
         all_questions, labels = load_data_triviaqa(False)
         preprocess_fn = triviqa_preprocess
@@ -549,6 +555,44 @@ def load_frank_lampard_data(excel_file):
     except ImportError:
         # Fallback if prepare_alpaca_prompt isn't available
         prompts = [f"System: {system_instruction}\n\nUser: {text}\n\nAssistant:" for text in texts]
+    
+    return prompts, labels
+
+def load_maradona_data(excel_file):
+    """Load and prepare data from the Maradona Hand of God Excel file for stance detection"""
+    from prepare_maradona_data import prepare_alpaca_prompt
+    
+    print(f"Loading Maradona Hand of God data from: {excel_file}")
+    
+    # Read the Excel file
+    df = pd.read_excel(excel_file)
+    
+    # Display column names to help debug
+    print("Available columns in Excel file:", df.columns.tolist())
+    
+    # Use the correct column names
+    text_column = 'Comment'
+    label_column = 'Llama3.1 Fine Tuned output'
+    
+    # System instruction for stance detection
+    system_instruction = ("You are provided with an input. You are required to perform stance detection "
+                         "on the input with output as one of the following labels - Favor, Against, "
+                         "Irrelevant, Neutral. The labels are self-explanatory. Remember to only use the labels provided "
+                         "and do not mispell its name. Only output the stance detected label and nothing else.")
+    
+    # Extract text and labels
+    texts = df[text_column].dropna().tolist()
+    labels = df[label_column].dropna().tolist()
+    
+    print(f"Loaded {len(texts)} texts and {len(labels)} labels")
+    
+    # Ensure we have the same number of texts and labels
+    min_len = min(len(texts), len(labels))
+    texts = texts[:min_len]
+    labels = labels[:min_len]
+    
+    # Prepare prompts with Alpaca format
+    prompts = [prepare_alpaca_prompt(system_instruction, text) for text in texts]
     
     return prompts, labels
 
