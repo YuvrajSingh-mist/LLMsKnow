@@ -132,7 +132,8 @@ MODEL_FRIENDLY_NAMES = {
     'unsloth/mistral-7b-instruct-v0.3-bnb-4bit': 'mistral-7b-instruct-fast',
     'unsloth/mistral-7b-v0.3-bnb-4bit': 'mistral-7b-fast',
     'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': 'llama-3.1-luis-suarez',
-    'YuvrajSingh9886/Llama3.1-8b-Frank-Lampard': 'llama-3.1-frank-lampard'
+    'YuvrajSingh9886/Llama3.1-8b-Frank-Lampard': 'llama-3.1-frank-lampard',
+    # 'YuvrajSingh9886/Llama-3.1-8b-Frank-Lampard': 'llama-3.1-frank-lampard'  # Adding with hyphen version
 }
 
 LIST_OF_PROBING_LOCATIONS = ['mlp', 'mlp_last_layer_only', 'mlp_last_layer_only_input', 'attention_output']

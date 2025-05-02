@@ -177,8 +177,8 @@ def main():
     if args.dataset == 'imdb':
         tokens_to_probe = ['last_q_token', 'exact_answer_first_token', 'exact_answer_last_token', 'exact_answer_after_last_token',
                            -8, -7, -6, -5, -4, -3, -2, -1]
-    elif args.dataset == 'luis_suarez':
-        # Custom tokens for stance detection task
+    elif args.dataset in ['luis_suarez', 'frank_lampard']:
+        # Custom tokens for stance detection tasks
         tokens_to_probe = ['last_q_token', 'first_answer_token', 'second_answer_token',
                            'exact_answer_first_token', 'exact_answer_last_token',
                            -8, -7, -6, -5, -4, -3, -2, -1]
