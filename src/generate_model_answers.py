@@ -580,35 +580,12 @@ def load_maradona_data(excel_file):
                          "Irrelevant, Neutral. The labels are self-explanatory. Remember to only use the labels provided "
                          "and do not mispell its name. Only output the stance detected label and nothing else.")
     
-    # Extract text and labels - use dropna only for texts, keep corresponding labels
-    texts = []
-    labels = []
-    
-    for idx, row in df.iterrows():
-        text = row.get(text_column)
-        label = row.get(label_column)
-        
-        # Skip rows where text is NaN/None/empty
-        if pd.isna(text) or not isinstance(text, str) or not text.strip():
-            continue
-            
-        # For labels, if NaN use a default value (you might want to change this strategy)
-        if pd.isna(label):
-            # Use a fallback label column or a default value
-            if 'Label' in df.columns:
-                label = row.get('Label')
-            else:
-                label = "Neutral"  # Default fallback label
-        
-        texts.append(text)
-        labels.append(label)
+    # Extract text and labels - only keep rows where both text and label exist
+    valid_indices = df[text_column].notna() & df[label_column].notna()
+    texts = df.loc[valid_indices, text_column].tolist()
+    labels = df.loc[valid_indices, label_column].tolist()
     
     print(f"Loaded {len(texts)} texts and {len(labels)} labels")
-    
-    # Ensure we have the same number of texts and labels
-    min_len = min(len(texts), len(labels))
-    texts = texts[:min_len]
-    labels = labels[:min_len]
     
     # Prepare prompts with Alpaca format
     prompts = [prepare_alpaca_prompt(system_instruction, text) for text in texts]
