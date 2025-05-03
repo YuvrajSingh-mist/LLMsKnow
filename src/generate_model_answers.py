@@ -580,9 +580,28 @@ def load_maradona_data(excel_file):
                          "Irrelevant, Neutral. The labels are self-explanatory. Remember to only use the labels provided "
                          "and do not mispell its name. Only output the stance detected label and nothing else.")
     
-    # Extract text and labels
-    texts = df[text_column].dropna().tolist()
-    labels = df[label_column].dropna().tolist()
+    # Extract text and labels - use dropna only for texts, keep corresponding labels
+    texts = []
+    labels = []
+    
+    for idx, row in df.iterrows():
+        text = row.get(text_column)
+        label = row.get(label_column)
+        
+        # Skip rows where text is NaN/None/empty
+        if pd.isna(text) or not isinstance(text, str) or not text.strip():
+            continue
+            
+        # For labels, if NaN use a default value (you might want to change this strategy)
+        if pd.isna(label):
+            # Use a fallback label column or a default value
+            if 'Label' in df.columns:
+                label = row.get('Label')
+            else:
+                label = "Neutral"  # Default fallback label
+        
+        texts.append(text)
+        labels.append(label)
     
     print(f"Loaded {len(texts)} texts and {len(labels)} labels")
     

@@ -311,6 +311,51 @@ def compute_correctness_frank_lampard(model_answers, labels):
     
     return {"correctness": correctness, "exact_answer": exact_answers}
 
+def compute_correctness_maradona(model_answers, labels):
+    """Compute correctness for stance detection task (Maradona Hand of God dataset)"""
+    correctness = []
+    exact_answers = []
+    
+    valid_labels = ["Favor", "Against", "Irrelevant", "Neutral"]
+    
+    for model_answer, correct_label in zip(model_answers, labels):
+        # Extract the predicted label from the Alpaca format response
+        # The model should return just the label, but we'll handle edge cases
+        extracted_label = None
+        
+        # First try to use the regex-based extraction function
+        import re
+        match = re.search(r'### Response:\s*(\w+)', model_answer)
+        if match:
+            extracted_label = match.group(1)
+        
+        # If regex fails, try other extraction methods
+        if not extracted_label:
+            # Look for the label in the answer
+            model_answer_clean = model_answer.strip()
+            for label in valid_labels:
+                if label in model_answer_clean:
+                    extracted_label = label
+                    break
+        
+        # If still no label found, try with lowercase variation
+        if not extracted_label:
+            model_answer_lower = model_answer_clean.lower()
+            for label in valid_labels:
+                if label.lower() in model_answer_lower:
+                    extracted_label = label
+                    break
+        
+        # Check if the extracted label matches the correct one
+        is_correct = 0
+        if extracted_label and extracted_label == correct_label:
+            is_correct = 1
+        
+        correctness.append(is_correct)
+        exact_answers.append(extracted_label if extracted_label else "NO ANSWER")
+    
+    return {"correctness": correctness, "exact_answer": exact_answers}
+
 def compute_correctness(all_questions, dataset_name, model_name, labels, model, model_answers, tokenizer, wrong_labels):
     if dataset_name == 'luis_suarez':
         res = compute_correctness_luis_suarez(model_answers, labels)
@@ -330,6 +375,8 @@ def compute_correctness(all_questions, dataset_name, model_name, labels, model, 
         res = compute_correctness_winobias(model_answers, labels, wrong_labels)
     elif 'frank_lampard' in dataset_name:
         res = compute_correctness_frank_lampard(model_answers, labels)
+    elif 'maradona' in dataset_name:
+        res = compute_correctness_maradona(model_answers, labels)
     else:
         res = CORRECTNESS_FN[dataset_name.replace("_test", "")](model_answers, labels)
     return res
@@ -383,5 +430,6 @@ CORRECTNESS_FN = {
     'mnli': compute_correctness_nli,
     'natural_questions_with_context': compute_correctness_natual_questions,
     'luis_suarez': compute_correctness_luis_suarez,
-    'frank_lampard': compute_correctness_frank_lampard
+    'frank_lampard': compute_correctness_frank_lampard,
+    'maradona': compute_correctness_maradona
 }
