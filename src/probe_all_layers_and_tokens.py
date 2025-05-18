@@ -1,6 +1,7 @@
 import argparse
 import os
 from collections import defaultdict
+import datetime
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -12,6 +13,14 @@ from transformers import set_seed
 from probing_utils import extract_internal_reps_all_layers_and_tokens, load_model_and_validate_gpu, \
     probe_specific_layer_token, N_LAYERS, compile_probing_indices, LIST_OF_DATASETS, LIST_OF_MODELS, \
     MODEL_FRIENDLY_NAMES, prepare_for_probing, LIST_OF_PROBING_LOCATIONS
+
+# Import the probing group utilities
+try:
+    from probing_group_utils import load_probing_group, get_input_output_ids_for_probing_group, probing_groups
+    HAS_PROBING_GROUPS = True
+except ImportError:
+    HAS_PROBING_GROUPS = False
+    print("Warning: probing_group_utils module not found. Probing group datasets will not be available.")
 
 
 def parse_args_and_init_wandb():
@@ -98,7 +107,6 @@ def log_metrics(all_metrics, tokens_to_probe):
         plt.ylabel('Layer')
         
         # Save locally with timestamp to avoid overwriting
-        import datetime
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         local_file_path = f"heatmap_{metric_name}_{timestamp}.png"
         ax.figure.savefig(local_file_path, bbox_inches="tight")
@@ -142,42 +150,85 @@ def main():
     args = parse_args_and_init_wandb()
     set_seed(args.seed)
     
-    # Use local paths instead of Kaggle paths
-    base_dir = '/kaggle/working'
-    model_output_file = f"{base_dir}/{MODEL_FRIENDLY_NAMES[args.model] if args.model in MODEL_FRIENDLY_NAMES else 'llama-3.1'}-answers-{args.dataset}.csv"
+    # Check if the dataset is a probing group
+    is_probing_group = HAS_PROBING_GROUPS and args.dataset in probing_groups
     
-    # Check if specific file exists first
-    if not os.path.exists(model_output_file):
-        # Fall back to files in the current directory that match the dataset
-        csv_files = [f for f in os.listdir(base_dir) if f.endswith(f'-{args.dataset}.csv')]
-        if csv_files:
-            model_output_file = f"{base_dir}/{csv_files[0]}"
-            print(f"Using found CSV file: {model_output_file}")
-        else:
-            print(f"Warning: Could not find a CSV file for dataset {args.dataset}")
-    
-    print(f"Loading data from: {model_output_file}")
-    data = pd.read_csv(model_output_file)
-    
-    # Check if PT file exists
-    pt_file = f"{base_dir}/{MODEL_FRIENDLY_NAMES[args.model] if args.model in MODEL_FRIENDLY_NAMES else 'llama-3.1'}-input_output_ids-{args.dataset}.pt"
-    if not os.path.exists(pt_file):
-        pt_files = [f for f in os.listdir(base_dir) if f.endswith(f'-input_output_ids-{args.dataset}.pt')]
-        if pt_files:
-            pt_file = f"{base_dir}/{pt_files[0]}"
-            print(f"Using found PT file: {pt_file}")
-        else:
-            print(f"Warning: Could not find a PT file for dataset {args.dataset}")
-    
-    print(f"Loading input_output_ids from: {pt_file}")
-    input_output_ids = torch.load(pt_file)
+    if is_probing_group:
+        # Load data from probing groups 
+        print(f"Loading probing group data for {args.dataset}...")
+        data = load_probing_group(args.dataset)
+        input_output_ids = get_input_output_ids_for_probing_group(args.dataset, args.model)
+        
+        print(f"Loaded probing group {args.dataset} with {len(data)} rows")
+        
+        # Make sure all needed columns exist
+        if 'automatic_correctness' not in data.columns:
+            print("Adding automatic_correctness column")
+            data['automatic_correctness'] = data.get('correctness', 1) # Assume correct if not specified
+            
+        if 'exact_answer' not in data.columns:
+            print("Adding exact_answer column")
+            # Use stance as exact answer for stance detection tasks
+            if 'correct_answer' in data.columns:
+                data['exact_answer'] = data['correct_answer']
+            else:
+                # Default placeholder
+                data['exact_answer'] = "Favor" 
+            
+        if 'valid_exact_answer' not in data.columns:
+            print("Adding valid_exact_answer column")
+            data['valid_exact_answer'] = 1  # Assume all valid
+    else:
+        # Use local paths instead of Kaggle paths
+        base_dir = '/kaggle/working'
+        model_output_file = f"{base_dir}/{MODEL_FRIENDLY_NAMES[args.model] if args.model in MODEL_FRIENDLY_NAMES else 'llama-3.1'}-answers-{args.dataset}.csv"
+        
+        # Check if specific file exists first
+        if not os.path.exists(model_output_file):
+            # Try local path
+            local_csv = f"{MODEL_FRIENDLY_NAMES[args.model] if args.model in MODEL_FRIENDLY_NAMES else 'llama-3.1'}-answers-{args.dataset}.csv"
+            if os.path.exists(local_csv):
+                model_output_file = local_csv
+                print(f"Using local CSV file: {model_output_file}")
+            else:
+                # Fall back to files in the base directory that match the dataset
+                csv_files = [f for f in os.listdir(".") if f.endswith(f'-{args.dataset}.csv')]
+                if csv_files:
+                    model_output_file = csv_files[0]
+                    print(f"Using found CSV file: {model_output_file}")
+                else:
+                    print(f"Warning: Could not find a CSV file for dataset {args.dataset}")
+        
+        print(f"Loading data from: {model_output_file}")
+        data = pd.read_csv(model_output_file)
+        
+        # Check if PT file exists
+        pt_file = f"{base_dir}/{MODEL_FRIENDLY_NAMES[args.model] if args.model in MODEL_FRIENDLY_NAMES else 'llama-3.1'}-input_output_ids-{args.dataset}.pt"
+        if not os.path.exists(pt_file):
+            # Try local path
+            local_pt = f"{MODEL_FRIENDLY_NAMES[args.model] if args.model in MODEL_FRIENDLY_NAMES else 'llama-3.1'}-input_output_ids-{args.dataset}.pt"
+            if os.path.exists(local_pt):
+                pt_file = local_pt
+                print(f"Using local PT file: {pt_file}")
+            else:
+                # Fall back to files in the directory that match the dataset
+                pt_files = [f for f in os.listdir(".") if f.endswith(f'-input_output_ids-{args.dataset}.pt')]
+                if pt_files:
+                    pt_file = pt_files[0]
+                    print(f"Using found PT file: {pt_file}")
+                else:
+                    print(f"Warning: Could not find a PT file for dataset {args.dataset}")
+        
+        print(f"Loading input_output_ids from: {pt_file}")
+        input_output_ids = torch.load(pt_file)
     
     model, tokenizer = load_model_and_validate_gpu(args.model)
 
+    # Determine tokens to probe based on dataset
     if args.dataset == 'imdb':
         tokens_to_probe = ['last_q_token', 'exact_answer_first_token', 'exact_answer_last_token', 'exact_answer_after_last_token',
                            -8, -7, -6, -5, -4, -3, -2, -1]
-    elif args.dataset in ['luis_suarez', 'frank_lampard']:
+    elif args.dataset.startswith('luis_suarez') or args.dataset.startswith('frank_lampard') or args.dataset.startswith('maradona'):
         # Custom tokens for stance detection tasks
         tokens_to_probe = ['last_q_token', 'first_answer_token', 'second_answer_token',
                            'exact_answer_first_token', 'exact_answer_last_token',
