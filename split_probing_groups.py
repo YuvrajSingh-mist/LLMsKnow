@@ -2,11 +2,11 @@
 import pandas as pd
 
 # Load the Frank Lampard dataset
-input_file = '/kaggle/workimng//llama-3.1-frank-lampard-answers-frank_lampard.csv'
+input_file = '/kaggle/working//llama-3.1-frank-lampard-answers-frank_lampard.csv'
 df = pd.read_csv(input_file)
 
 # Create output file paths
-output_dir = '/kaggle/workimng//probing_groups'
+output_dir = '/kaggle/working/LLMsKnow/probing_groups'
 true_file = f"{output_dir}/frank_lampard_true_predictions.csv"
 false_file = f"{output_dir}/frank_lampard_false_predictions.csv"
 
