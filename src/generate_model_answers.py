@@ -15,18 +15,28 @@ from compute_correctness import compute_correctness
 from probing_utils import load_model_and_validate_gpu, tokenize, generate, LIST_OF_DATASETS, MODEL_FRIENDLY_NAMES, \
     LIST_OF_MODELS
 
+# Import the probing group utilities if available
+try:
+    from probing_group_utils import load_probing_group, probing_groups
+    HAS_PROBING_GROUPS = True
+except ImportError:
+    HAS_PROBING_GROUPS = False
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="A script for generating model answers and outputting to csv")
     parser.add_argument("--model",
                         choices=LIST_OF_MODELS,
                         required=True)
-    parser.add_argument("--dataset",
-                        choices=LIST_OF_DATASETS,
-                        help='Dataset to use for generating answers')
+    
+    # Allow any dataset name (including probing groups) by removing choices restriction
+    parser.add_argument("--dataset", 
+                        help='Dataset to use for generating answers', 
+                        required=True)
+    
     parser.add_argument("--verbose", action='store_true', help='print more information')
     parser.add_argument("--n_samples", type=int, help='number of examples to use', default=None)
-    parser.add_argument("--excel_file", type=str, help='path to Excel file for stance detection', default=None)
+    parser.add_argument("--excel_file", type=str, help='path to Excel file or CSV for stance detection', default=None)
 
     return parser.parse_args()
 
@@ -234,248 +244,87 @@ def generate_model_answers(data, model, tokenizer, device, model_name, do_sample
 
 
 def init_wandb(args):
-    cfg = vars(args)
-    cfg['dataset'] = args.dataset
     wandb.init(
-        project="generate_answers",
-        config=cfg
+        project="generating_answers",
+        config=vars(args)
     )
 
-
-def load_data_imdb(split):
-    dataset = load_dataset("imdb")
-
-
-    indices = np.arange(0, len(dataset[split]))
-    np.random.shuffle(indices)
-
-    reviews = dataset[split][indices[:10000]]['text']
-    labels = dataset[split][indices[:10000]]['label']
-    return reviews, labels
-
-def imdb_preprocess(model_name, reviews, labels):
-
-    prompts = []
-    labels_to_name = ['negative', 'positive']
-
-    review1 = None
-    label1 = None
-
-    if 'phi' in model_name.lower():
-        for review, label in zip(reviews, labels):
-            prompt = f"""
-            Review: I would put this at the top of my list of films in the category of unwatchable trash! There are films that are bad, but the worst kind are the ones that are unwatchable but you are suppose to like them because they are supposed to be good for you! The sex sequences, so shocking in its day, couldn't even arouse a rabbit. The so called controversial politics is strictly high school sophomore amateur night Marxism. The film is self-consciously arty in the worst sense of the term. The photography is in a harsh grainy black and white. Some scenes are out of focus or taken from the wrong angle. Even the sound is bad! And some people call this art?<br /><br />
-            Label: negative
-            Review: Zentropa is the most original movie I've seen in years. If you like unique thrillers that are influenced by film noir, then this is just the right cure for all of those Hollywood summer blockbusters clogging the theaters these days. Von Trier's follow-ups like Breaking the Waves have gotten more acclaim, but this is really his best work. It is flashy without being distracting and offers the perfect combination of suspense and dark humor. It's too bad he decided handheld cameras were the wave of the future. It's hard to say who talked him away from the style he exhibits here, but it's everyone's loss that he went into his heavily theoretical dogma direction instead.
-            Label: positive
-            Review: {review}
-            Label:"""
-            prompts.append(prompt)
-    else:
-        for review, label in zip(reviews, labels):
-            if review1 is None:
-                review1 = review
-                label1 = labels_to_name[label]
-            answer_first_prompt = "Start with either 'positive' or 'negative' first, then elaborate."
-            example_prompt = ''
-            if 'llama-3' not in model_name.lower():
-                answer_first_prompt = ''
-                example_prompt = f"""
-                Example:
-                Review: {review1}
-                Label: {label1}
-                Review: {review}
-                Label: """
-
-
-            prompt = f"""Classify the following movie reviews as either "positive" or "negative". {answer_first_prompt}
-            {example_prompt}
-            Review: {review}
-            Label:"""
-            prompts.append(prompt)
-
-    return prompts
-
-def triviqa_preprocess(model_name, all_questions, labels):
-    prompts = []
-    if 'instruct' in model_name.lower():
-        prompts = all_questions
-    else:
-        for q in all_questions:
-            prompts.append(f'''Q: {q}
-        A:''')
-    return prompts
-
-def nq_preprocess(model_name, all_questions, labels, with_context, context):
-    prompts = []
-    if with_context:
-        if 'instruct' in model_name.lower():
-            for q, context in zip(all_questions, context):
-                prompts.append(f'{context}\n{q}')
+def load_data(dataset, excel_file=None):
+    # If we have probing groups available and the dataset is a probing group
+    if HAS_PROBING_GROUPS and dataset in probing_groups:
+        print(f"Loading data from probing group: {dataset}")
+        if not excel_file:
+            # Use the default probing group file path
+            df = load_probing_group(dataset)
         else:
-            for q, context in zip(all_questions, context):
-                prompts.append(f'''Context:{context}
-                Q: {q}
-A:''')
-    else:
-        if 'instruct' in model_name.lower():
-            prompts = [f'{q}' for q in all_questions]
-        else:
-            for q in all_questions:
-                prompts.append(f'''Q: {q}
-                A:''')
-    print('Prompt:', prompts[-1])
-    return prompts
-def triviaqa_postprocess(model_name, raw_answers):
-    model_answers = []
-    if 'instruct' in model_name.lower():
-        model_answers = raw_answers
-    else:
-        for ans in raw_answers:
-            model_answer = ans.strip().split('\n')[0]
-            model_answers.append(model_answer)
-    return raw_answers, model_answers
-
-
-def load_winobias(dev_or_test):
-    data = pd.read_csv(f'./data/winobias_{dev_or_test}.csv')
-    return (data['sentence'], data['q'], data['q_instruct']), data['answer'], data['incorrect_answer'], data['stereotype'], data['type']
-
-def winobias_preprocess(model_name, all_questions, labels):
-    sentences, q, q_instruct = all_questions
-    if 'instruct' in model_name.lower():
-        prompts = [x + ' ' + y for x, y in zip(sentences, q_instruct)]
-    else:
-        prompts = [x + ' ' + y for x, y in zip(sentences, q)]
-
-    return prompts
-
-def load_hotpotqa(split, with_context):
-
-    dataset = load_dataset("hotpot_qa", 'distractor')
-    subset_indices = np.random.randint(0, len(dataset[split]), 10000)
-    all_questions = [dataset[split][int(x)]['question'] for x in subset_indices]
-    labels = [dataset[split][int(x)]['answer'] for x in subset_indices]
-    if with_context:
-        all_questions = []
-
-        for idx in subset_indices:
-            prompt = ""
-            for evidence in dataset[split][int(idx)]['context']['sentences']:
-                for sentence in evidence:
-                    prompt += sentence + '\n'
-            prompt += dataset[split][int(idx)]['question']
-            all_questions.append(prompt)
-
-    return all_questions, labels
-
-def winogrande_preprocess(model_name, all_questions, labels):
-    if 'instruct' not in model_name.lower():
-        new_questions = []
-        q1 = None
-        label1 = None
-        for q, label in zip(all_questions,labels):
-            if q1 is None:
-                q1 = q.split("Who does the blank refer to in the sentence?")[0].split("What does the blank refer to in the sentence?")[0]
-                label1 = label
-            q_ = q.split("Who does the blank refer to in the sentence?")[0].split("What does the blank refer to in the sentence?")[0]
-            q_with_ex = \
-                f"""{q1} The blank refers to: {label1}
-{q_} The blank refers to:"""
-            new_questions.append(q_with_ex)
-        return new_questions
-    return all_questions
-
-def load_data(dataset_name, excel_file=None):
-    max_new_tokens = 100
-    context, origin, stereotype, type_, wrong_labels = None, None, None, None, None
+            # Use the specified file path
+            df = pd.read_csv(excel_file)
+        
+        # Extract the base dataset name (e.g., "frank_lampard" from "frank_lampard_true")
+        base_dataset = None
+        if dataset.startswith('frank_lampard'):
+            base_dataset = 'frank_lampard'
+        elif dataset.startswith('luis_suarez'):
+            base_dataset = 'luis_suarez'
+        elif dataset.startswith('maradona'):
+            base_dataset = 'maradona'
+        
+        if not base_dataset:
+            raise ValueError(f"Could not determine base dataset for probing group {dataset}")
+            
+        # Use the same processing as the base dataset
+        all_questions = df['question'].tolist()
+        labels = df['correct_answer'].tolist()
+        wrong_labels = None
+        context = None
+        preprocess_fn = None
+        max_new_tokens = 100
+        
+        return all_questions, context, labels, max_new_tokens, None, preprocess_fn, None, None, wrong_labels
     
-    if dataset_name == 'luis_suarez':
-        if excel_file is None:
-            raise ValueError("For luis_suarez dataset, --excel_file must be provided")
-        all_questions, labels = load_luis_suarez_data(excel_file)
-        preprocess_fn = None  # Already preprocessed in load_luis_suarez_data
-    elif dataset_name == 'frank_lampard':
-        if excel_file is None:
-            raise ValueError("For frank_lampard dataset, --excel_file must be provided")
-        all_questions, labels = load_frank_lampard_data(excel_file)
-        preprocess_fn = None  # Already preprocessed in load_frank_lampard_data
-    elif dataset_name == 'maradona':
-        if excel_file is None:
-            raise ValueError("For maradona dataset, --excel_file must be provided")
-        all_questions, labels = load_maradona_data(excel_file)
-        preprocess_fn = None  # Already preprocessed in load_maradona_data
-    elif dataset_name == 'triviaqa':
-        all_questions, labels = load_data_triviaqa(False)
-        preprocess_fn = triviqa_preprocess
-    elif dataset_name == 'triviaqa_test':
-        all_questions, labels = load_data_triviaqa(True)
-        preprocess_fn = triviqa_preprocess
-    elif dataset_name == 'imdb':
-        all_questions, labels = load_data_imdb('train')
-        preprocess_fn = imdb_preprocess
-    elif dataset_name == 'imdb_test':
-        all_questions, labels = load_data_imdb('test')
-        preprocess_fn = imdb_preprocess
-    elif dataset_name == 'winobias':
-        all_questions, labels, wrong_labels, stereotype, type_ = load_winobias('dev')
-        preprocess_fn = winobias_preprocess
-    elif dataset_name == 'winobias_test':
-        all_questions, labels, wrong_labels, stereotype, type_ = load_winobias('test')
-        preprocess_fn = winobias_preprocess
-    elif dataset_name == 'hotpotqa':
-        all_questions, labels = load_hotpotqa('train', with_context=False)
-        preprocess_fn = triviqa_preprocess
-    elif dataset_name == 'hotpotqa_test':
-        all_questions, labels = load_hotpotqa('validation', with_context=False)
-        preprocess_fn = triviqa_preprocess
-    elif dataset_name == 'hotpotqa_with_context':
-        all_questions, labels = load_hotpotqa('train', with_context=True)
-        preprocess_fn = triviqa_preprocess
-    elif dataset_name == 'hotpotqa_with_context_test':
-        all_questions, labels = load_hotpotqa('validation', with_context=True)
-        preprocess_fn = triviqa_preprocess
-    elif dataset_name == 'math':
-        all_questions, labels = load_data_math(test=False)
-        preprocess_fn = math_preprocess
-        max_new_tokens = 200
-    elif dataset_name == 'math_test':
-        all_questions, labels = load_data_math(test=True)
-        preprocess_fn = math_preprocess
-        max_new_tokens = 200
-    elif dataset_name == 'movies':
-        all_questions, labels = load_data_movies(test=False)
-        preprocess_fn = triviqa_preprocess
-    elif dataset_name == 'movies_test':
-        all_questions, labels = load_data_movies(test=True)
-        preprocess_fn = triviqa_preprocess
-    elif dataset_name == 'mnli':
-        all_questions, labels, origin = load_data_mnli('train')
-        preprocess_fn = triviqa_preprocess
-    elif dataset_name == 'mnli_test':
-        all_questions, labels, origin = load_data_mnli('test')
-        preprocess_fn = triviqa_preprocess
-    elif dataset_name == 'natural_questions':
-        all_questions, labels, context = load_data_nq('train')
-        preprocess_fn = nq_preprocess
-    elif dataset_name == 'natural_questions_test':
-        all_questions, labels, context = load_data_nq('test')
-        preprocess_fn = nq_preprocess
-    elif dataset_name == 'natural_questions_with_context':
-        all_questions, labels, context = load_data_nq('train', with_context=True)
-        preprocess_fn = nq_preprocess
-    elif dataset_name == 'natural_questions_with_context_test':
-        all_questions, labels, context = load_data_nq('test', with_context=True)
-        preprocess_fn = nq_preprocess
-    elif dataset_name == 'winogrande':
-        all_questions, labels, wrong_labels = load_data_winogrande('train')
-        preprocess_fn = winogrande_preprocess
-    elif dataset_name == 'winogrande_test':
-        all_questions, labels, wrong_labels = load_data_winogrande('test')
-        preprocess_fn = winogrande_preprocess
+    # Otherwise use the standard dataset loading logic
+    if dataset == 'triviaqa':
+        return load_data_triviaqa()
+    elif dataset == 'imdb':
+        return load_data_imdb()
+    elif dataset == 'winobias':
+        return load_winobias('dev')
+    elif dataset == 'winobias_test':
+        return load_winobias('test')
+    elif dataset == 'hotpotqa':
+        return load_hotpotqa('train', with_context=False)
+    elif dataset == 'hotpotqa_test':
+        return load_hotpotqa('validation', with_context=False)
+    elif dataset == 'hotpotqa_with_context':
+        return load_hotpotqa('train', with_context=True)
+    elif dataset == 'hotpotqa_with_context_test':
+        return load_hotpotqa('validation', with_context=True)
+    elif dataset == 'math':
+        return load_data_math(test=False)
+    elif dataset == 'math_test':
+        return load_data_math(test=True)
+    elif dataset == 'movies':
+        return load_data_movies(test=False)
+    elif dataset == 'movies_test':
+        return load_data_movies(test=True)
+    elif dataset == 'mnli':
+        return load_data_mnli('train')
+    elif dataset == 'mnli_test':
+        return load_data_mnli('test')
+    elif dataset == 'natural_questions':
+        return load_data_nq('train')
+    elif dataset == 'natural_questions_test':
+        return load_data_nq('test')
+    elif dataset == 'natural_questions_with_context':
+        return load_data_nq('train', with_context=True)
+    elif dataset == 'natural_questions_with_context_test':
+        return load_data_nq('test', with_context=True)
+    elif dataset == 'winogrande':
+        return load_data_winogrande('train')
+    elif dataset == 'winogrande_test':
+        return load_data_winogrande('test')
     else:
         raise TypeError("data type is not supported")
-    return all_questions, context, labels, max_new_tokens, origin, preprocess_fn, stereotype, type_, wrong_labels
 
 def load_luis_suarez_data(excel_file):
     """Load and prepare data from the Luis Suarez Excel file for stance detection"""
@@ -640,7 +489,13 @@ def main():
                                                                                          output_scores=True, max_new_tokens=max_new_tokens,
                                                                                          stop_token_id=stop_token_id)
 
-    res = compute_correctness(all_questions, args.dataset, args.model, labels, model, model_answers, tokenizer, wrong_labels)
+    # Determine which correctness function to use based on dataset
+    correctness_dataset = args.dataset
+    # Strip _true or _false suffix for probing groups to get base dataset
+    if correctness_dataset.endswith('_true') or correctness_dataset.endswith('_false'):
+        correctness_dataset = '_'.join(correctness_dataset.split('_')[:-1])
+
+    res = compute_correctness(all_questions, correctness_dataset, args.model, labels, model, model_answers, tokenizer, wrong_labels)
     correctness = res['correctness']
 
     acc = np.mean(correctness)
@@ -660,19 +515,14 @@ def main():
     if 'winobias' in args.dataset:
         output_csv['stereotype'] = stereotype
         output_csv['type'] = type_
-    if 'nli' in args.dataset:
+
+    if 'mnli' in args.dataset:
         output_csv['origin'] = origin
 
-    print("Saving answers to ", file_path_answers)
-
-    pd.DataFrame.from_dict(output_csv).to_csv(file_path_answers)
-
-    print("Saving input output ids to ", file_path_output_ids)
+    pd.DataFrame(output_csv).to_csv(file_path_answers)
     torch.save(input_output_ids, file_path_output_ids)
+    torch.save({'all_scores': all_scores, 'all_output_ids': all_output_ids}, file_path_scores)
 
-    print("Saving input output ids to ", file_path_scores)
-    torch.save({"all_scores": all_scores,
-                "all_output_ids": all_output_ids}, file_path_scores)
 
 if __name__ == "__main__":
     main()
