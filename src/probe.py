@@ -17,6 +17,13 @@ from probing_utils import extract_internal_reps_specific_layer_and_token, compil
     load_model_and_validate_gpu, get_probing_layer_names, LIST_OF_DATASETS, LIST_OF_MODELS, \
     MODEL_FRIENDLY_NAMES, LIST_OF_PROBING_LOCATIONS, compute_metrics_probing, prepare_for_probing
 
+# Import the new probing group utilities
+try:
+    from probing_group_utils import load_probing_group, get_input_output_ids_for_probing_group, probing_groups
+    HAS_PROBING_GROUPS = True
+except ImportError:
+    HAS_PROBING_GROUPS = False
+
 
 def parse_args_and_init_wandb():
     parser = argparse.ArgumentParser(
@@ -30,8 +37,8 @@ def parse_args_and_init_wandb():
     parser.add_argument("--layer", type=int)
     parser.add_argument("--token", type=str)
     parser.add_argument("--save_clf", action='store_true', default=False, help="Whether to save the clf. If true, will look for a classifier before training and load it if exists.")
-    parser.add_argument("--dataset", choices=LIST_OF_DATASETS, required=True)
-    parser.add_argument("--test_dataset", choices=LIST_OF_DATASETS, required=False, default=None)
+    parser.add_argument("--dataset", required=True) # Allow any dataset name, not restricting to LIST_OF_DATASETS
+    parser.add_argument("--test_dataset", required=False, default=None)
 
     args = parser.parse_args()
 
@@ -47,6 +54,7 @@ def parse_args_and_init_wandb():
         )
 
     return args
+
 
 def probe(model, tokenizer, data, input_output_ids, token, layer, probe_at, seeds,
               model_name, dataset_name, n_samples,
@@ -123,13 +131,19 @@ def probe(model, tokenizer, data, input_output_ids, token, layer, probe_at, seed
 def aggregate_metrics_across_seeds(metrics_per_seed):
     metrics_aggregated = {}
     for k in metrics_per_seed:
-        metrics_aggregated[f"{k}"] = np.mean(metrics_per_seed[k])
+        metrics_aggregated[k] = np.mean(metrics_per_seed[k])
         metrics_aggregated[f"{k}_std"] = np.std(metrics_per_seed[k])
     return metrics_aggregated
 
 
 def init_and_train_classifier(seed, X_train, y_train):
-    clf = LogisticRegression(random_state=seed).fit(X_train, y_train)
+    if len(y_train) <= 128:  # it's a small data set
+        clf = LogisticRegression(random_state=seed, max_iter=10000)
+    else:
+        # For larger datasets
+        clf = LogisticRegression(random_state=seed)
+            
+    clf.fit(X_train, y_train)
     return clf
 
 
@@ -149,6 +163,7 @@ def get_saved_clf_if_exists(args):
         print("Classifier not found, training new one")
     return clf, save_clf, save_path
 
+
 def main():
     args = parse_args_and_init_wandb()
 
@@ -156,15 +171,66 @@ def main():
 
     data_test = None
     input_output_ids_test = None
-    model_output_file = f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
-    data = pd.read_csv(model_output_file).reset_index()
-    input_output_ids = torch.load(
-        f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{args.dataset}.pt")
+    
+    # Handle probing group datasets
+    is_probing_group = HAS_PROBING_GROUPS and args.dataset in probing_groups
+    
+    if is_probing_group:
+        # Load data from probing groups 
+        print(f"Loading probing group data for {args.dataset}...")
+        data = load_probing_group(args.dataset)
+        input_output_ids = get_input_output_ids_for_probing_group(args.dataset, args.model)
+        
+        print(f"Loaded probing group {args.dataset} with {len(data)} rows")
+        
+        # Make sure all needed columns exist
+        if 'automatic_correctness' not in data.columns:
+            print("Adding automatic_correctness column")
+            data['automatic_correctness'] = data.get('correctness', 1) # Assume correct if not specified
+            
+        if 'exact_answer' not in data.columns:
+            print("Adding exact_answer column")
+            # Use stance as exact answer for stance detection tasks
+            if 'correct_answer' in data.columns:
+                data['exact_answer'] = data['correct_answer']
+            else:
+                # Default placeholder
+                data['exact_answer'] = "Favor" 
+            
+        if 'valid_exact_answer' not in data.columns:
+            print("Adding valid_exact_answer column")
+            data['valid_exact_answer'] = 1  # Assume all valid
+    else:
+        # Regular dataset loading
+        model_output_file = f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
+        
+        # Try local path if Kaggle path doesn't exist
+        if not os.path.exists(model_output_file):
+            local_file = f"{MODEL_FRIENDLY_NAMES[args.model]}-answers-{args.dataset}.csv"
+            if os.path.exists(local_file):
+                model_output_file = local_file
+                print(f"Using local file: {model_output_file}")
+        
+        data = pd.read_csv(model_output_file).reset_index()
+        
+        input_output_ids_file = f"/kaggle/working/{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{args.dataset}.pt"
+        
+        # Try local path if Kaggle path doesn't exist
+        if not os.path.exists(input_output_ids_file):
+            local_file = f"{MODEL_FRIENDLY_NAMES[args.model]}-input_output_ids-{args.dataset}.pt"
+            if os.path.exists(local_file):
+                input_output_ids_file = local_file
+                print(f"Using local file: {input_output_ids_file}")
+                
+        input_output_ids = torch.load(input_output_ids_file)
 
+    # Handle test dataset if provided
     if args.test_dataset is not None:
         test_dataset = args.test_dataset
     else:
         test_dataset = args.dataset
+        
+    # Try to load test data
     model_output_file_test = f"/kaggle/working/mistral-7b-instruct-answers-{test_dataset}_test.csv"
     load_test = False
     if os.path.isfile(model_output_file_test):
@@ -180,8 +246,8 @@ def main():
         clf = None
 
     res = probe(model, tokenizer, data, input_output_ids, args.token,
-                                                   args.layer, args.probe_at, args.seeds, args.model, args.dataset,
-                                                    args.n_samples, data_test, input_output_ids_test, clf)
+                args.layer, args.probe_at, args.seeds, args.model, args.dataset,
+                args.n_samples, data_test, input_output_ids_test, clf)
 
     if load_test:
         metrics_test = res[1]
