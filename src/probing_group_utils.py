@@ -3,7 +3,7 @@ import os
 import pandas as pd
 
 # Base directory for all probing group files
-PROBING_GROUPS_DIR = os.path.join('/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow', 'probing_groups')
+PROBING_GROUPS_DIR = os.path.join('./LLMsKnow', 'probing_groups')
 
 # Path constants for easier access to each file
 MARADONA_TRUE_PATH = os.path.join(PROBING_GROUPS_DIR, 'maradona_true_predictions.csv')

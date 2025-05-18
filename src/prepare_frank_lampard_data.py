@@ -99,7 +99,7 @@ def main():
     model_name = args.model
     
     # File paths
-    excel_file = "/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/Frank Lampard Ghost Goal Labels with Llama3.1_8b_Instruct using Alpaca Prompt Fine Tuned (9).xlsx"
+    excel_file = "./LLMsKnow/Frank Lampard Ghost Goal Labels with Llama3.1_8b_Instruct using Alpaca Prompt Fine Tuned (9).xlsx"
     output_csv = f"{MODEL_FRIENDLY_NAMES[model_name]}-answers-frank_lampard.csv"
     output_pt = f"{MODEL_FRIENDLY_NAMES[model_name]}-input_output_ids-frank_lampard.pt"
     

@@ -2,11 +2,11 @@
 import pandas as pd
 
 # Load the Frank Lampard dataset
-input_file = '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/llama-3.1-frank-lampard-answers-frank_lampard.csv'
+input_file = './LLMsKnow/llama-3.1-frank-lampard-answers-frank_lampard.csv'
 df = pd.read_csv(input_file)
 
 # Create output file paths
-output_dir = '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/probing_groups'
+output_dir = './LLMsKnow/probing_groups'
 true_file = f"{output_dir}/frank_lampard_true_predictions.csv"
 false_file = f"{output_dir}/frank_lampard_false_predictions.csv"
 
