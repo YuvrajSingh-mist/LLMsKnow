@@ -1,9 +1,22 @@
 #!/usr/bin/env python3
 import os
 import pandas as pd
+import torch
 
-# Base directory for all probing group files
-PROBING_GROUPS_DIR = '/kaggle/working/LLMsKnow/probing_groups'
+# Detect if we're in a Kaggle environment
+def is_kaggle():
+    """Check if we're running in a Kaggle environment"""
+    return os.path.exists('/kaggle/working')
+
+# Determine the appropriate base directories based on environment
+if is_kaggle():
+    # Kaggle path
+    BASE_DIR = '/kaggle/working/LLMsKnow'
+    PROBING_GROUPS_DIR = os.path.join(BASE_DIR, 'probing_groups')
+else:
+    # Local path based on repository structure
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    PROBING_GROUPS_DIR = os.path.join(BASE_DIR, 'probing_groups')
 
 # Path constants for easier access to each file
 MARADONA_TRUE_PATH = os.path.join(PROBING_GROUPS_DIR, 'maradona_true_predictions.csv')
@@ -64,7 +77,20 @@ def load_probing_group(group_name):
     if group_name not in probing_groups:
         raise KeyError(f"Unknown probing group: {group_name}. Available groups: {list(probing_groups.keys())}")
     
-    return probing_groups[group_name]()
+    try:
+        return probing_groups[group_name]()
+    except FileNotFoundError as e:
+        # Print more detailed error message with the path that was tried
+        if group_name.startswith('frank_lampard'):
+            path = FRANK_LAMPARD_TRUE_PATH if '_true' in group_name else FRANK_LAMPARD_FALSE_PATH
+        elif group_name.startswith('luis_suarez'):
+            path = LUIS_SUAREZ_TRUE_PATH if '_true' in group_name else LUIS_SUAREZ_FALSE_PATH 
+        elif group_name.startswith('maradona'):
+            path = MARADONA_TRUE_PATH if '_true' in group_name else MARADONA_FALSE_PATH
+        else:
+            path = "unknown"
+        
+        raise FileNotFoundError(f"Could not find probing group file at {path}") from e
 
 # Add these probing groups to the list of available datasets in probing_utils.py
 def update_probing_datasets_lists():
@@ -100,9 +126,9 @@ def get_input_output_ids_for_probing_group(group_name, model_name):
     Returns:
         PyTorch tensor of input_output_ids for the specified group
     """
-    import torch
     from probing_utils import MODEL_FRIENDLY_NAMES
     
+    # Extract base dataset name
     base_dataset = None
     if group_name.startswith('maradona'):
         base_dataset = 'maradona'
@@ -114,31 +140,74 @@ def get_input_output_ids_for_probing_group(group_name, model_name):
     if not base_dataset:
         raise ValueError(f"Could not determine base dataset for probing group {group_name}")
     
-    # Try to find the PT file in the expected locations
+    # Get friendly model name
     friendly_name = MODEL_FRIENDLY_NAMES.get(model_name, 'model')
-    pt_paths = [
+    
+    # Define possible file paths in both Kaggle and local environments
+    possible_paths = [
+        # Kaggle paths for both original and probing group specific files
         f"/kaggle/working/{friendly_name}-input_output_ids-{base_dataset}.pt",
+        f"/kaggle/working/{friendly_name}-input_output_ids-{group_name}.pt",
+        f"/kaggle/working/llama-3.1-{base_dataset.replace('_', '-')}-input_output_ids-{base_dataset}.pt",
+        f"/kaggle/working/LLMsKnow/{friendly_name}-input_output_ids-{base_dataset}.pt",
+        # Local paths
+        os.path.join(BASE_DIR, f"{friendly_name}-input_output_ids-{base_dataset}.pt"),
+        os.path.join(BASE_DIR, f"{friendly_name}-input_output_ids-{group_name}.pt"),
         os.path.join(os.path.dirname(__file__), '..', f"{friendly_name}-input_output_ids-{base_dataset}.pt")
     ]
     
-    for pt_path in pt_paths:
+    # Try loading from each possible path
+    for pt_path in possible_paths:
         if os.path.exists(pt_path):
-            input_output_ids = torch.load(pt_path)
-            
-            # Get the relevant subset based on the probing group CSV
-            df = load_probing_group(group_name)
-            
-            # Only keep input_output_ids that correspond to rows in the probing group
-            # This assumes the probing group has an 'index' column that matches the original dataset
-            if 'index' in df.columns:
-                indices = df['index'].tolist()
-                filtered_input_output_ids = [input_output_ids[i] for i in indices if i < len(input_output_ids)]
-                return filtered_input_output_ids
-            else:
-                # If no index column, just return all (not ideal but fallback)
-                return input_output_ids
+            print(f"Found input_output_ids file at: {pt_path}")
+            try:
+                input_output_ids = torch.load(pt_path)
+                
+                # Get the relevant subset based on the probing group CSV
+                df = load_probing_group(group_name)
+                
+                # Only keep input_output_ids that correspond to rows in the probing group
+                # This assumes the probing group has an 'index' column that matches the original dataset
+                if 'index' in df.columns:
+                    indices = df['index'].tolist()
+                    filtered_input_output_ids = [input_output_ids[i] for i in indices if i < len(input_output_ids)]
+                    return filtered_input_output_ids
+                else:
+                    # If no index column, just return all (not ideal but fallback)
+                    print("Warning: No 'index' column found in probing group. Using all input_output_ids.")
+                    return input_output_ids
+                    
+            except Exception as e:
+                print(f"Error loading file {pt_path}: {str(e)}")
+                continue
     
-    raise FileNotFoundError(f"Could not find input_output_ids PT file for {base_dataset} dataset")
+    # Debug info
+    print(f"Could not find input_output_ids file for {base_dataset} dataset.")
+    print(f"Looked in the following locations:")
+    for path in possible_paths:
+        print(f"  - {path} (exists: {os.path.exists(path)})")
+        
+    # As a last resort, try to generate input_output_ids from scratch
+    try:
+        from probing_utils import MODEL_FRIENDLY_NAMES, tokenize, load_model_and_validate_gpu
+        
+        print(f"Attempting to generate input_output_ids for {group_name} from scratch...")
+        data = load_probing_group(group_name)
+        model, tokenizer = load_model_and_validate_gpu(model_name)
+        
+        # Create input_output_ids from questions
+        questions = data['question'].tolist()
+        input_output_ids = []
+        
+        for question in questions:
+            model_input = tokenize(question, tokenizer, model_name)
+            input_output_ids.append(model_input.cpu().squeeze())
+            
+        return input_output_ids
+    except Exception as e:
+        print(f"Failed to generate input_output_ids: {str(e)}")
+            
+    raise FileNotFoundError(f"Could not find input_output_ids file for {base_dataset} dataset")
 
 # Example usage:
 # from probing_group_utils import load_probing_group, get_input_output_ids_for_probing_group
