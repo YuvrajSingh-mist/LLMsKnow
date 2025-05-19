@@ -258,7 +258,19 @@ def load_data(dataset, excel_file=None):
             df = load_probing_group(dataset)
         else:
             # Use the specified file path
-            df = pd.read_csv(excel_file)
+            if 'probing_groups_transformed' in excel_file:
+                # Already using transformed data
+                df = pd.read_csv(excel_file)
+            else:
+                # Switch to transformed directory if using original path
+                transformed_file = excel_file.replace('probing_groups/', 'probing_groups_transformed/')
+                if os.path.exists(transformed_file):
+                    df = pd.read_csv(transformed_file)
+                    print(f"Using transformed file: {transformed_file}")
+                else:
+                    # Fallback to original file
+                    df = pd.read_csv(excel_file)
+                    print(f"Warning: Transformed file not found, using original: {excel_file}")
         
         # Extract the base dataset name (e.g., "frank_lampard" from "frank_lampard_true")
         base_dataset = None
@@ -271,8 +283,28 @@ def load_data(dataset, excel_file=None):
         
         if not base_dataset:
             raise ValueError(f"Could not determine base dataset for probing group {dataset}")
+        
+        # Handle the new transformed CSV format with Comments and Label columns
+        if 'Comments' in df.columns and 'Label' in df.columns:
+            print("Using transformed CSV format with Comments and Label columns")
             
-        # Use the same processing as the base dataset
+            # Prepare the data in the expected format
+            from prepare_luis_suarez_data import prepare_alpaca_prompt
+            
+            # System instruction for stance detection
+            system_instruction = ("You are provided with an input. You are required to perform stance detection "
+                                "on the input with output as one of the following labels - Favor, Against, "
+                                "Irrelevant, Neutral. The labels are self-explanatory. Remember to only use the labels provided "
+                                "and do not mispell its name. Only output the stance detected label and nothing else.")
+            
+            # Prepare Alpaca prompts
+            all_questions = [prepare_alpaca_prompt(system_instruction, comment) for comment in df['Comments']]
+            labels = df['Label'].tolist()
+            
+            # Return the data in the expected format
+            return all_questions, None, labels, 100, None, None, None, None, None
+            
+        # Use the original format if Comments/Label columns aren't found
         all_questions = df['question'].tolist()
         labels = df['correct_answer'].tolist()
         wrong_labels = None
