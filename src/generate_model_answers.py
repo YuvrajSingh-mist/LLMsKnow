@@ -314,6 +314,34 @@ def load_data(dataset, excel_file=None):
         
         return all_questions, context, labels, max_new_tokens, None, preprocess_fn, None, None, wrong_labels
     
+    # Handle custom dataset types for stance detection (frank_lampard, maradona, luis_suarez)
+    if dataset.startswith('frank_lampard') and excel_file:
+        # Use the dedicated function for Frank Lampard dataset
+        all_questions, labels = load_frank_lampard_data(excel_file)
+        wrong_labels = None
+        context = None
+        preprocess_fn = None
+        max_new_tokens = 100
+        return all_questions, context, labels, max_new_tokens, None, preprocess_fn, None, None, wrong_labels
+    
+    elif dataset.startswith('maradona') and excel_file:
+        # Use the dedicated function for Maradona dataset
+        all_questions, labels = load_maradona_data(excel_file)
+        wrong_labels = None
+        context = None
+        preprocess_fn = None
+        max_new_tokens = 100
+        return all_questions, context, labels, max_new_tokens, None, preprocess_fn, None, None, wrong_labels
+    
+    elif dataset.startswith('luis_suarez') and excel_file:
+        # Use the dedicated function for Luis Suarez dataset
+        all_questions, labels = load_luis_suarez_data(excel_file)
+        wrong_labels = None
+        context = None
+        preprocess_fn = None
+        max_new_tokens = 100
+        return all_questions, context, labels, max_new_tokens, None, preprocess_fn, None, None, wrong_labels
+    
     # Otherwise use the standard dataset loading logic
     if dataset == 'triviaqa':
         return load_data_triviaqa()
