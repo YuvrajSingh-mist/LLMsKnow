@@ -2,6 +2,7 @@
 import pandas as pd
 import random
 import os
+import shutil
 
 # Detect if we're in Kaggle environment
 def is_kaggle():
@@ -12,10 +13,21 @@ if is_kaggle():
     # Kaggle paths
     input_file = "/kaggle/working/llama-3.1-frank-lampard-answers-frank_lampard_true.csv"
     output_file = "/kaggle/working/llama-3.1-frank-lampard-answers-frank_lampard_mixed.csv"
+    
+    # PT file paths
+    source_pt = "/kaggle/working/llama-3.1-frank-lampard-input_output_ids-frank_lampard.pt"
+    # Alternative source path if the first one doesn't exist
+    alt_source_pt = "/kaggle/working/llama-3.1-frank-lampard-input_output_ids-frank_lampard_true.pt"
+    target_pt = "/kaggle/working/llama-3.1-frank-lampard-input_output_ids-frank_lampard_mixed.pt"
 else:
     # Local paths for testing
     input_file = "llama-3.1-frank-lampard-answers-frank_lampard_true (1).csv"
     output_file = "llama-3.1-frank-lampard-answers-frank_lampard_mixed.csv"
+    
+    # PT file paths
+    source_pt = "llama-3.1-frank-lampard-input_output_ids-frank_lampard.pt"
+    alt_source_pt = "llama-3.1-frank-lampard-input_output_ids-frank_lampard_true.pt"
+    target_pt = "llama-3.1-frank-lampard-input_output_ids-frank_lampard_mixed.pt"
 
 # Check if input file exists
 if not os.path.exists(input_file):
@@ -83,27 +95,42 @@ print(f"Saving to: {output_file}")
 df.to_csv(output_file, index=False)
 print(f"\nSaved modified dataset to: {output_file}")
 
-# Create symbolic link for the PT file if we're not in Kaggle
-# In Kaggle, we'll handle this differently since PT files might be in various locations
-if not is_kaggle():
+# Copy the PT file (input_output_ids) instead of creating a symbolic link
+# This is more reliable in Kaggle environments
+print("\nCopying PT file for input_output_ids...")
+
+# Find the source PT file
+pt_source = None
+for potential_source in [source_pt, alt_source_pt]:
+    if os.path.exists(potential_source):
+        pt_source = potential_source
+        print(f"Found source PT file: {pt_source}")
+        break
+
+if pt_source:
     try:
-        source_pt = "llama-3.1-frank-lampard-input_output_ids-frank_lampard.pt"
-        target_pt = "llama-3.1-frank-lampard-input_output_ids-frank_lampard_mixed.pt"
-        if os.path.exists(source_pt) and not os.path.exists(target_pt):
-            os.symlink(source_pt, target_pt)
-            print(f"Created symbolic link from {source_pt} to {target_pt}")
+        # Copy the file instead of creating a symbolic link
+        shutil.copy2(pt_source, target_pt)
+        print(f"Successfully copied PT file from {pt_source} to {target_pt}")
     except Exception as e:
-        print(f"Could not create symbolic link for PT file: {e}")
+        print(f"Error copying PT file: {e}")
+        # List available files to help troubleshoot
+        if is_kaggle():
+            pt_files = [f for f in os.listdir('/kaggle/working') if f.endswith('.pt')]
+            print(f"Available PT files in working directory: {pt_files}")
 else:
-    print("\nNote: In Kaggle, you need to run this command to link the PT file:")
-    print("!ln -s /kaggle/working/llama-3.1-frank-lampard-input_output_ids-frank_lampard.pt " +
-          "/kaggle/working/llama-3.1-frank-lampard-input_output_ids-frank_lampard_mixed.pt")
-    print("\nOr add this to your notebook cell:")
-    print("import os")
-    print("source_pt = \"/kaggle/working/llama-3.1-frank-lampard-input_output_ids-frank_lampard.pt\"") 
-    print("target_pt = \"/kaggle/working/llama-3.1-frank-lampard-input_output_ids-frank_lampard_mixed.pt\"")
-    print("if os.path.exists(source_pt) and not os.path.exists(target_pt):")
-    print("    os.symlink(source_pt, target_pt)")
+    print(f"Could not find source PT file. Searched for:")
+    print(f"  - {source_pt}")
+    print(f"  - {alt_source_pt}")
+    
+    # List available PT files
+    if is_kaggle():
+        pt_files = [f for f in os.listdir('/kaggle/working') if f.endswith('.pt')]
+        print(f"Available PT files in working directory: {pt_files}")
+    
+    print("\nPlease manually copy the PT file using:")
+    print(f"import shutil")
+    print(f"shutil.copy2('[PATH_TO_SOURCE_PT]', '{target_pt}')")
 
 print("\nTo run probing on the mixed dataset, use:")
 print("python src/probe_all_layers_and_tokens.py --model YuvrajSingh9886/Llama3.1-8b-Frank-Lampard " +
