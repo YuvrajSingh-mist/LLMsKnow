@@ -38,6 +38,44 @@ def process_csv_file(input_file, output_file):
     except Exception as e:
         print(f"Error processing {input_file}: {str(e)}")
 
+def create_compatible_dataset(input_file, output_file, text_column='Comment', label_column='Llama3.1 Not Fine Tuned Output'):
+    """
+    Create a dataset compatible with generate_model_answers.py by extracting specific columns
+    """
+    # Check if the input file exists
+    if not os.path.exists(input_file):
+        print(f"Error: Input file '{input_file}' not found!")
+        return False
+
+    try:
+        # Read the input Excel file
+        df = pd.read_excel(input_file)
+
+        # Check if required columns exist
+        if text_column not in df.columns:
+            print(f"Error: '{text_column}' column not found in {input_file}")
+            return False
+
+        if label_column not in df.columns:
+            print(f"Error: '{label_column}' column not found in {input_file}")
+            return False
+
+        # Extract only the necessary columns
+        output_df = df[[text_column, label_column]].copy()
+
+        # Rename columns for compatibility
+        output_df.rename(columns={text_column: 'Comment', label_column: 'Llama3.1 Not Fine Tuned Output'}, inplace=True)
+
+        # Save to the output file
+        output_df.to_csv(output_file, index=False)
+        print(f"Successfully created compatible dataset: {output_file}")
+        print(f"Dataset contains {len(output_df)} rows")
+        return True
+
+    except Exception as e:
+        print(f"Error processing file {input_file}: {str(e)}")
+        return False
+
 def main():
     # Directory containing the CSV files
     input_dir = "probing_groups"
@@ -53,6 +91,43 @@ def main():
             input_file = os.path.join(input_dir, filename)
             output_file = os.path.join(output_dir, filename)
             process_csv_file(input_file, output_file)
+
+    # Process all three datasets
+    datasets = [
+        {
+            'input': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/Frank Lampard Ghost Goal Labels with Llama3.1_8b_Instruct using Alpaca Prompt Fine Tuned (9).xlsx',
+            'output': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/frank_lampard_not_fine_tuned.csv',
+            'text_col': 'Comment',
+            'label_col': 'Llama3.1 Not Fine Tuned output'
+        },
+        {
+            'input': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/Maradon Hand of God Labels with Llama3.1_8b_Instruct using Alpaca Prompt Fine Tuned (10).xlsx',
+            'output': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/maradona_not_fine_tuned.csv',
+            'text_col': 'Comment',
+            'label_col': 'Llama3.1 Not Fine Tuned output'
+        },
+        {
+            'input': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/Luis Suarez Handball Labels with Llama3.1_8b_Instruct using Alpaca Prompt Fine Tuned.xlsx',
+            'output': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/luis_suarez_not_fine_tuned.csv',
+            'text_col': 'Comment',
+            'label_col': 'Llama3.1 Not Fine Tuned output'
+        }
+    ]
+
+    # Process each dataset
+    for dataset in datasets:
+        print(f"\nProcessing dataset: {os.path.basename(dataset['input'])}")
+        create_compatible_dataset(
+            dataset['input'], 
+            dataset['output'], 
+            text_column=dataset['text_col'], 
+            label_column=dataset['label_col']
+        )
+
+    print("\nTo run generate_model_answers.py with the new datasets:")
+    for dataset in datasets:
+        dataset_name = os.path.basename(dataset['output']).replace('.csv', '')
+        print(f"\npython src/generate_model_answers.py --model meta-llama/Llama-3.1-8B-Instruct --dataset {dataset_name} --n_samples 400 --excel_file \"{os.path.basename(dataset['input'])}\"")
 
 if __name__ == "__main__":
     main()
