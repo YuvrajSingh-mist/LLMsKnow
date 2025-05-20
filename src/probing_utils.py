@@ -554,7 +554,6 @@ def prepare_for_probing(data, input_output_ids, training_data_indices, validatio
     data_train = data.iloc[training_data_indices].reset_index()
     data_valid = data.iloc[validation_data_indices].reset_index()
 
-
     y_train = data_train['automatic_correctness'].to_numpy()
     y_valid = data_valid['automatic_correctness'].to_numpy()
 
@@ -572,8 +571,22 @@ def prepare_for_probing(data, input_output_ids, training_data_indices, validatio
         validity_of_exact_answer_train = None
         validity_of_exact_answer_valid = None
 
-    questions_train = data.iloc[training_data_indices].reset_index()['question']
-    questions_valid = data.iloc[validation_data_indices].reset_index()['question']
+    # Handle the case where we have Comments column instead of question (transformed format)
+    question_col = 'question'
+    if question_col not in data.columns and 'Comments' in data.columns:
+        question_col = 'Comments'
+        print(f"Using '{question_col}' column instead of 'question' (transformed CSV format)")
+    
+    # Check if the required column exists before trying to access it
+    if question_col in data.columns:
+        questions_train = data.iloc[training_data_indices].reset_index()[question_col]
+        questions_valid = data.iloc[validation_data_indices].reset_index()[question_col]
+    else:
+        # Handle the case where neither column exists
+        print(f"Warning: Neither 'question' nor 'Comments' column found in data. Available columns: {list(data.columns)}")
+        # Create placeholder questions
+        questions_train = pd.Series([""] * len(data_train))
+        questions_valid = pd.Series([""] * len(data_valid))
 
     return data_train, data_valid, input_output_ids_train, input_output_ids_valid, y_train, y_valid,\
             exact_answer_train, exact_answer_valid, validity_of_exact_answer_train, validity_of_exact_answer_valid, \

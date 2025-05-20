@@ -62,23 +62,35 @@ probing_groups = {
 
 def load_probing_group(group_name):
     """
-    Load a probing group's data from the transformed CSV files.
+    Load a probing group file by its simple name
     
     Args:
-        group_name: Name of the probing group to load
-        
+        group_name: One of 'maradona_true', 'maradona_false', 'frank_lampard_true',
+                   'frank_lampard_false', 'luis_suarez_true', 'luis_suarez_false'
+    
     Returns:
-        pandas DataFrame containing the probing group data
+        pandas DataFrame containing the requested probing group data
+    
+    Raises:
+        KeyError: If the group_name is not recognized
     """
-    # Use the transformed directory
-    file_path = f"probing_groups_transformed/{group_name}_predictions.csv"
+    if group_name not in probing_groups:
+        raise KeyError(f"Unknown probing group: {group_name}. Available groups: {list(probing_groups.keys())}")
     
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Could not find probing group file at {file_path}")
-    
-    df = pd.read_csv(file_path)
-    
-    return df
+    try:
+        return probing_groups[group_name]()
+    except FileNotFoundError as e:
+        # Print more detailed error message with the path that was tried
+        if group_name.startswith('frank_lampard'):
+            path = FRANK_LAMPARD_TRUE_PATH if '_true' in group_name else FRANK_LAMPARD_FALSE_PATH
+        elif group_name.startswith('luis_suarez'):
+            path = LUIS_SUAREZ_TRUE_PATH if '_true' in group_name else LUIS_SUAREZ_FALSE_PATH 
+        elif group_name.startswith('maradona'):
+            path = MARADONA_TRUE_PATH if '_true' in group_name else MARADONA_FALSE_PATH
+        else:
+            path = "unknown"
+        
+        raise FileNotFoundError(f"Could not find probing group file at {path}") from e
 
 # Add these probing groups to the list of available datasets in probing_utils.py
 def update_probing_datasets_lists():
