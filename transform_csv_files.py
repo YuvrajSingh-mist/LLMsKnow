@@ -38,6 +38,25 @@ def process_csv_file(input_file, output_file):
     except Exception as e:
         print(f"Error processing {input_file}: {str(e)}")
 
+def clean_comment(comment):
+    """
+    Clean the comment text by removing unnecessary text or formatting.
+    """
+    if not isinstance(comment, str):
+        return comment
+
+    # Remove any leading/trailing whitespace
+    comment = comment.strip()
+
+    # Remove specific unwanted patterns (e.g., "### Input:", "###", etc.)
+    unwanted_patterns = ["### Input:", "###"]
+    for pattern in unwanted_patterns:
+        comment = comment.replace(pattern, "")
+
+    # Further cleaning can be added here if needed
+
+    return comment
+
 def create_compatible_dataset(input_file, output_file, text_column='Comment', label_column='Llama3.1 Not Fine Tuned Output'):
     """
     Create a dataset compatible with generate_model_answers.py by extracting specific columns
@@ -76,6 +95,127 @@ def create_compatible_dataset(input_file, output_file, text_column='Comment', la
         print(f"Error processing file {input_file}: {str(e)}")
         return False
 
+def create_compatible_dataset_with_ground_truth(original_file, excel_file, output_file, text_column='Comment', label_column='Llama3.1 Not Fine Tuned output'):
+    """
+    Create a dataset compatible with generate_model_answers.py by ensuring it includes the same 400 comments
+    from the original file along with the ground truth labels from the Excel file.
+    """
+    # Check if the input files exist
+    if not os.path.exists(original_file):
+        print(f"Error: Original file '{original_file}' not found!")
+        return False
+
+    if not os.path.exists(excel_file):
+        print(f"Error: Excel file '{excel_file}' not found!")
+        return False
+
+    try:
+        # Read the original CSV file
+        original_df = pd.read_csv(original_file)
+
+        # Read the Excel file containing ground truth labels
+        excel_df = pd.read_excel(excel_file)
+
+        # Check if required columns exist in the Excel file
+        if text_column not in excel_df.columns:
+            print(f"Error: '{text_column}' column not found in {excel_file}")
+            return False
+
+        if label_column not in excel_df.columns:
+            print(f"Error: '{label_column}' column not found in {excel_file}")
+            return False
+
+        # Ensure proper alignment by trimming and normalizing whitespace in both datasets
+        original_df['question_normalized'] = original_df['question'].str.strip()
+        excel_df['Comment_normalized'] = excel_df[text_column].str.strip()
+
+        # Merge the original comments with the ground truth labels
+        merged_df = original_df.merge(
+            excel_df[['Comment_normalized', label_column]],
+            left_on='question_normalized',
+            right_on='Comment_normalized',
+            how='left'
+        )
+
+        # Clean the comments
+        merged_df['question'] = merged_df['question'].apply(clean_comment)
+
+        # Select only the necessary columns
+        output_df = merged_df[['question', label_column]].copy()
+
+        # Rename columns for compatibility
+        output_df.rename(columns={'question': 'Comment', label_column: 'Llama3.1 Not Fine Tuned output'}, inplace=True)
+
+        # Save to the output file
+        output_df.to_csv(output_file, index=False)
+        print(f"Successfully created compatible dataset: {output_file}")
+        print(f"Dataset contains {len(output_df)} rows")
+        return True
+
+    except Exception as e:
+        print(f"Error processing files {original_file} and {excel_file}: {str(e)}")
+        return False
+
+def extract_comments_and_match_labels(original_file, excel_file, output_file, text_column='Comment', label_column='Llama3.1 Not Fine Tuned output'):
+    """
+    Extract comments from the original file and match them with the corresponding labels in the Excel file.
+    """
+    # Check if the input files exist
+    if not os.path.exists(original_file):
+        print(f"Error: Original file '{original_file}' not found!")
+        return False
+
+    if not os.path.exists(excel_file):
+        print(f"Error: Excel file '{excel_file}' not found!")
+        return False
+
+    try:
+        # Read the original CSV file
+        original_df = pd.read_csv(original_file)
+
+        # Extract comments from the 'question' column
+        original_df['comment_extracted'] = original_df['question'].str.extract(r"### Input:\s*(.*)")
+
+        # Read the Excel file containing ground truth labels
+        excel_df = pd.read_excel(excel_file)
+
+        # Check if required columns exist in the Excel file
+        if text_column not in excel_df.columns:
+            print(f"Error: '{text_column}' column not found in {excel_file}")
+            return False
+
+        if label_column not in excel_df.columns:
+            print(f"Error: '{label_column}' column not found in {excel_file}")
+            return False
+
+        # Ensure proper alignment by trimming and normalizing whitespace in both datasets
+        original_df['comment_extracted'] = original_df['comment_extracted'].str.strip()
+        excel_df[text_column] = excel_df[text_column].str.strip()
+
+        # Merge the extracted comments with the ground truth labels
+        merged_df = original_df.merge(
+            excel_df[[text_column, label_column]],
+            left_on='comment_extracted',
+            right_on=text_column,
+            how='left'
+        )
+
+        # Select only the necessary columns
+        output_df = merged_df[['comment_extracted', label_column]].copy()
+
+        # Rename columns for compatibility
+        output_df.rename(columns={'comment_extracted': 'Comment', label_column: 'Llama3.1 Not Fine Tuned output'}, inplace=True)
+
+        # Save to the output file
+        output_df.to_csv(output_file, index=False)
+        print(f"Successfully created compatible dataset: {output_file}")
+        print(f"Dataset contains {len(output_df)} rows")
+        return True
+
+    except Exception as e:
+        print(f"Error processing files {original_file} and {excel_file}: {str(e)}")
+        return False
+
 def main():
     # Directory containing the CSV files
     input_dir = "probing_groups"
@@ -95,39 +235,37 @@ def main():
     # Process all three datasets
     datasets = [
         {
-            'input': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/Frank Lampard Ghost Goal Labels with Llama3.1_8b_Instruct using Alpaca Prompt Fine Tuned (9).xlsx',
-            'output': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/frank_lampard_not_fine_tuned.csv',
-            'text_col': 'Comment',
-            'label_col': 'Llama3.1 Not Fine Tuned output'
+            'original': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/llama-3.1-frank-lampard-answers-frank_lampard.csv',
+            'excel': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/Frank Lampard Ghost Goal Labels with Llama3.1_8b_Instruct using Alpaca Prompt Fine Tuned (9).xlsx',
+            'output': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/frank_lampard_not_fine_tuned.csv'
         },
         {
-            'input': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/Maradon Hand of God Labels with Llama3.1_8b_Instruct using Alpaca Prompt Fine Tuned (10).xlsx',
-            'output': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/maradona_not_fine_tuned.csv',
-            'text_col': 'Comment',
-            'label_col': 'Llama3.1 Not Fine Tuned output'
+            'original': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/llama-3.1-maradona-answers-maradona.csv',
+            'excel': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/Maradon Hand of God Labels with Llama3.1_8b_Instruct using Alpaca Prompt Fine Tuned (10).xlsx',
+            'output': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/maradona_not_fine_tuned.csv'
         },
         {
-            'input': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/Luis Suarez Handball Labels with Llama3.1_8b_Instruct using Alpaca Prompt Fine Tuned.xlsx',
-            'output': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/luis_suarez_not_fine_tuned.csv',
-            'text_col': 'Comment',
-            'label_col': 'Llama3.1 Not Fine Tuned output'
+            'original': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/llama-3.1-luis-suarez-answers-luis_suarez.csv',
+            'excel': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/Luis Suarez Handball Labels with Llama3.1_8b_Instruct using Alpaca Prompt Fine Tuned.xlsx',
+            'output': '/mnt/c/Users/yuvra/OneDrive/Desktop/Work/IISERKolkata/LLMsKnow/luis_suarez_not_fine_tuned.csv'
         }
     ]
 
     # Process each dataset
     for dataset in datasets:
-        print(f"\nProcessing dataset: {os.path.basename(dataset['input'])}")
-        create_compatible_dataset(
-            dataset['input'], 
+        print(f"\nProcessing dataset: {os.path.basename(dataset['original'])}")
+        extract_comments_and_match_labels(
+            dataset['original'], 
+            dataset['excel'], 
             dataset['output'], 
-            text_column=dataset['text_col'], 
-            label_column=dataset['label_col']
+            text_column='Comment', 
+            label_column='Llama3.1 Not Fine Tuned output'
         )
 
     print("\nTo run generate_model_answers.py with the new datasets:")
     for dataset in datasets:
         dataset_name = os.path.basename(dataset['output']).replace('.csv', '')
-        print(f"\npython src/generate_model_answers.py --model meta-llama/Llama-3.1-8B-Instruct --dataset {dataset_name} --n_samples 400 --excel_file \"{os.path.basename(dataset['input'])}\"")
+        print(f"\npython src/generate_model_answers.py --model meta-llama/Llama-3.1-8B-Instruct --dataset {dataset_name} --n_samples 400 --excel_file \"{os.path.basename(dataset['excel'])}\"")
 
 if __name__ == "__main__":
     main()
