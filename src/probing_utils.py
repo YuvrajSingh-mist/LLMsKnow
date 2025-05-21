@@ -2,6 +2,7 @@ import json
 from collections import defaultdict
 
 import numpy as np
+import os
 import pandas as pd
 import torch
 import transformers
@@ -363,8 +364,13 @@ def extract_internal_reps_all_layers_and_tokens(model, input_output_ids_lst, pro
 def load_model_and_validate_gpu(model_path, tokenizer_path=None):
     if tokenizer_path is None:
         tokenizer_path = model_path
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+    
+    # Directly use the Hugging Face token instead of environment variable
+    hf_token = "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"
+    
+    # Use the token when loading tokenizer
     print("Started loading model")
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, token=hf_token)
     
     # Check if we should use Unsloth for faster inferencing
     if any(unsloth_model in model_path for unsloth_model in ["unsloth/", "YuvrajSingh9886/"]):
@@ -377,12 +383,13 @@ def load_model_and_validate_gpu(model_path, tokenizer_path=None):
             dtype = None  # Auto detection: Float16 for Tesla T4, V100, Bfloat16 for Ampere+
             load_in_4bit = True  # Use 4bit quantization to reduce memory usage
             
+            # Load Unsloth models WITHOUT token parameter
             model, _ = FastLanguageModel.from_pretrained(
                 model_name=model_path,
                 max_seq_length=max_seq_length,
                 dtype=dtype,
-                load_in_4bit=load_in_4bit,
-                # token="hf_..."  # Uncomment and add token if using gated models
+                load_in_4bit=load_in_4bit
+                # Removed token parameter for Unsloth models
             )
             # model = FastLanguageModel.get_peft_model(model, None, None)
             FastLanguageModel.for_inference(model)
@@ -399,11 +406,13 @@ def load_model_and_validate_gpu(model_path, tokenizer_path=None):
                 from unsloth import FastLanguageModel
                 import torch
                 
+                # Load Unsloth models WITHOUT token parameter
                 model, _ = FastLanguageModel.from_pretrained(
                     model_name=model_path,
                     max_seq_length=2048,
                     dtype=None,
-                    load_in_4bit=True,
+                    load_in_4bit=True
+                    # Removed token parameter for Unsloth models
                 )
                 # model = FastLanguageModel.get_peft_model(model, None, None)
                 FastLanguageModel.for_inference(model)
@@ -415,9 +424,14 @@ def load_model_and_validate_gpu(model_path, tokenizer_path=None):
             print(f"Failed to load model with Unsloth: {e}")
             print("Falling back to regular HuggingFace loading method...")
     
-    # Original HuggingFace loading method
-    model = AutoModelForCausalLM.from_pretrained(model_path, device_map='auto',
-                                                 torch_dtype=torch.bfloat16, low_cpu_mem_usage=True)
+    # Original HuggingFace loading method with direct token
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path, 
+        device_map='auto',
+        torch_dtype=torch.bfloat16, 
+        low_cpu_mem_usage=True,
+        token=hf_token  # Keep token for regular HuggingFace models
+    )
     assert ('cpu' not in model.hf_device_map.values())
     return model, tokenizer
 
