@@ -365,6 +365,9 @@ def load_model_and_validate_gpu(model_path, tokenizer_path=None):
     if tokenizer_path is None:
         tokenizer_path = model_path
     
+    # Import torch at the beginning to avoid UnboundLocalError
+    import torch
+    
     # Directly use the Hugging Face token instead of environment variable
     hf_token = "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"
     
@@ -376,7 +379,6 @@ def load_model_and_validate_gpu(model_path, tokenizer_path=None):
     if any(unsloth_model in model_path for unsloth_model in ["unsloth/", "YuvrajSingh9886/"]):
         try:
             from unsloth import FastLanguageModel
-            import torch
             
             print("Loading model with Unsloth for faster inferencing...")
             max_seq_length = 2048  # Can be adjusted as needed
@@ -404,7 +406,6 @@ def load_model_and_validate_gpu(model_path, tokenizer_path=None):
             # Try again after installation
             try:
                 from unsloth import FastLanguageModel
-                import torch
                 
                 # Load Unsloth models WITHOUT token parameter
                 model, _ = FastLanguageModel.from_pretrained(
