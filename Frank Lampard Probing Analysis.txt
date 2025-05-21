@@ -1,0 +1,67 @@
+Frank Lampard (Fine Tuned)
+
+Top 5 results for acc_diff_from_baseline:
+  1. Layer: 1, Token: exact_answer_first_token, Value: 0.2875
+  2. Layer: 3, Token: exact_answer_first_token, Value: 0.2875
+  3. Layer: 4, Token: exact_answer_first_token, Value: 0.2875
+  4. Layer: 5, Token: exact_answer_first_token, Value: 0.2875
+  5. Layer: 6, Token: exact_answer_first_token, Value: 0.2875
+Saved heatmap for f1 to heatmap_f1_20250520_201115.png
+Saved results for f1 to results_f1_20250520_201115.csv
+
+Top 5 results for f1:
+  1. Layer: 1, Token: exact_answer_first_token, Value: 0.9600
+  2. Layer: 3, Token: exact_answer_first_token, Value: 0.9600
+  3. Layer: 4, Token: exact_answer_first_token, Value: 0.9600
+  4. Layer: 5, Token: exact_answer_first_token, Value: 0.9600
+  5. Layer: 6, Token: exact_answer_first_token, Value: 0.9600
+Saved heatmap for precision to heatmap_precision_20250520_201116.png
+Saved results for precision to results_precision_20250520_201116.csv
+
+Top 5 results for precision:
+  1. Layer: 25, Token: last_q_token, Value: 1.0000
+  2. Layer: 0, Token: second_answer_token, Value: 1.0000
+  3. Layer: 0, Token: exact_answer_first_token, Value: 1.0000
+  4. Layer: 2, Token: exact_answer_first_token, Value: 1.0000
+  5. Layer: 0, Token: exact_answer_last_token, Value: 1.0000
+Saved heatmap for recall to heatmap_recall_20250520_201117.png
+Saved results for recall to results_recall_20250520_201117.csv
+
+Top 5 results for recall:
+  1. Layer: 1, Token: exact_answer_first_token, Value: 0.9600
+  2. Layer: 3, Token: exact_answer_first_token, Value: 0.9600
+  3. Layer: 4, Token: exact_answer_first_token, Value: 0.9600
+  4. Layer: 5, Token: exact_answer_first_token, Value: 0.9600
+  5. Layer: 6, Token: exact_answer_first_token, Value: 0.9600
+Saved heatmap for auc to heatmap_auc_20250520_201119.png
+Saved results for auc to results_auc_20250520_201119.csv
+
+Top 5 results for auc:
+  1. Layer: 6, Token: exact_answer_last_token, Value: 0.9993
+  2. Layer: 7, Token: exact_answer_last_token, Value: 0.9993
+  3. Layer: 9, Token: exact_answer_last_token, Value: 0.9985
+  4. Layer: 17, Token: exact_answer_first_token, Value: 0.9978
+  5. Layer: 15, Token: exact_answer_first_token, Value: 0.9971
+Saved heatmap for baseline_acc to heatmap_baseline_acc_20250520_201120.png
+Saved results for baseline_acc to results_baseline_acc_20250520_201120.csv
+
+Top 5 results for baseline_acc:
+  1. Layer: 0, Token: last_q_token, Value: 0.6875
+  2. Layer: 1, Token: last_q_token, Value: 0.6875
+  3. Layer: 2, Token: last_q_token, Value: 0.6875
+  4. Layer: 3, Token: last_q_token, Value: 0.6875
+  5. Layer: 4, Token: last_q_token, Value: 0.6875
+Saved heatmap for acc to heatmap_acc_20250520_201121.png
+Saved results for acc to results_acc_20250520_201121.csv
+
+Top 5 results for acc:
+  1. Layer: 1, Token: exact_answer_first_token, Value: 0.9750
+  2. Layer: 3, Token: exact_answer_first_token, Value: 0.9750
+  3. Layer: 4, Token: exact_answer_first_token, Value: 0.9750
+  4. Layer: 5, Token: exact_answer_first_token, Value: 0.9750
+  5. Layer: 6, Token: exact_answer_first_token, Value: 0.9750
+
+------------------------------------------------------------------------------------------------------------------------------------------
+
+Not Fine Tuned
+
