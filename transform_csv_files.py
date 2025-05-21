@@ -265,7 +265,7 @@ def main():
     print("\nTo run generate_model_answers.py with the new datasets:")
     for dataset in datasets:
         dataset_name = os.path.basename(dataset['output']).replace('.csv', '')
-        print(f"\npython src/generate_model_answers.py --model meta-llama/Llama-3.1-8B-Instruct --dataset {dataset_name} --n_samples 400 --excel_file \"{os.path.basename(dataset['excel'])}\"")
+        print(f"\npython src/generate_model_answers.py --model unsloth/Llama-3.1-8B-Instruct --dataset {dataset_name} --n_samples 400 --excel_file \"{os.path.basename(dataset['excel'])}\"")
 
 if __name__ == "__main__":
     main()

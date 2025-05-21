@@ -2,7 +2,7 @@ import os
 import subprocess
 import argparse
 
-def run_with_hf_token(model="meta-llama/Llama-3.1-8B-Instruct", 
+def run_with_hf_token(model="unsloth/Llama-3.1-8B-Instruct", 
                       dataset="frank_lampard_not_fine_tuned", 
                       n_samples=400, 
                       excel_file="frank_lampard_random_samples.xlsx",
@@ -65,7 +65,7 @@ def run_with_hf_token(model="meta-llama/Llama-3.1-8B-Instruct",
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run model generation and probing with HF authentication")
-    parser.add_argument("--model", default="meta-llama/Llama-3.1-8B-Instruct", help="Model ID to use")
+    parser.add_argument("--model", default="unsloth/Llama-3.1-8B-Instruct", help="Model ID to use")
     parser.add_argument("--dataset", default="frank_lampard_not_fine_tuned", help="Dataset to use")
     parser.add_argument("--n_samples", type=int, default=400, help="Number of samples to process")
     parser.add_argument("--excel_file", default="frank_lampard_random_samples.xlsx", help="Excel file with the dataset")
