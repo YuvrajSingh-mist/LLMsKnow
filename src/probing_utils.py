@@ -433,7 +433,15 @@ def load_model_and_validate_gpu(model_path, tokenizer_path=None):
         low_cpu_mem_usage=True,
         token=hf_token  # Keep token for regular HuggingFace models
     )
-    assert ('cpu' not in model.hf_device_map.values())
+    
+    # Check if parts of the model are on CPU and print information
+    if hasattr(model, 'hf_device_map') and 'cpu' in model.hf_device_map.values():
+        cpu_modules = [module for module, device in model.hf_device_map.items() if device == 'cpu']
+        print(f"Note: Some parts of the model are on CPU due to GPU memory limitations.")
+        print(f"CPU modules: {cpu_modules[:5]}{'...' if len(cpu_modules) > 5 else ''}")
+    else:
+        print("Model fully loaded on GPU.")
+    
     return model, tokenizer
 
 
