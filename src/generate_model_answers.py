@@ -324,18 +324,18 @@ def load_data(dataset, excel_file=None):
         max_new_tokens = 100
         return all_questions, context, labels, max_new_tokens, None, preprocess_fn, None, None, wrong_labels
     
-    elif dataset.startswith('maradona') and excel_file:
-        # Use the dedicated function for Maradona dataset
-        all_questions, labels = load_maradona_data(excel_file)
+    elif (dataset.startswith('luis_suarez') or dataset == 'luis_fine_tuned' or dataset == 'luis_fine_not_tuned') and excel_file:
+        # Use the dedicated function for Luis Suarez dataset
+        all_questions, labels = load_luis_suarez_data(excel_file)
         wrong_labels = None
         context = None
         preprocess_fn = None
         max_new_tokens = 100
         return all_questions, context, labels, max_new_tokens, None, preprocess_fn, None, None, wrong_labels
     
-    elif dataset.startswith('luis_suarez') and excel_file:
-        # Use the dedicated function for Luis Suarez dataset
-        all_questions, labels = load_luis_suarez_data(excel_file)
+    elif (dataset.startswith('maradona') or dataset == 'maradona_fine_tuned' or dataset == 'maradona_not_fine_tuned') and excel_file:
+        # Use the dedicated function for Maradona dataset
+        all_questions, labels = load_maradona_data(excel_file)
         wrong_labels = None
         context = None
         preprocess_fn = None
