@@ -357,9 +357,22 @@ def compute_correctness_maradona(model_answers, labels):
     return {"correctness": correctness, "exact_answer": exact_answers}
 
 def compute_correctness(all_questions, dataset_name, model_name, labels, model, model_answers, tokenizer, wrong_labels):
-    if dataset_name == 'luis_suarez':
+    # Handle base datasets and their variations (like fine_tuned, not_fine_tuned, etc.)
+    base_dataset = dataset_name
+    
+    # Handle special dataset variations
+    if 'luis_suarez' in dataset_name or dataset_name.startswith('luis_fine'):
+        base_dataset = 'luis_suarez'
+    elif 'frank_lampard' in dataset_name:
+        base_dataset = 'frank_lampard'
+    elif 'maradona' in dataset_name:
+        base_dataset = 'maradona'
+    elif '_test' in dataset_name:
+        base_dataset = dataset_name.replace("_test", "")
+    
+    if base_dataset == 'luis_suarez':
         res = compute_correctness_luis_suarez(model_answers, labels)
-    elif 'natural_questions' in dataset_name:
+    elif 'natural_questions' in base_dataset:
         if model == 'mistralai/Mistral-7B-Instruct-v0.2':
             res = compute_correctness_natual_questions(all_questions, model_answers, labels, model=model,
                                                                tokenizer=tokenizer)
@@ -369,16 +382,18 @@ def compute_correctness(all_questions, dataset_name, model_name, labels, model, 
             gc.collect()
             torch.cuda.empty_cache()
             res = compute_correctness_natual_questions(all_questions, model_answers, labels)
-    elif 'winogrande' in dataset_name:
+    elif 'winogrande' in base_dataset:
         res = compute_correctness_winogrande(model_answers, labels, wrong_labels, model_name=model_name)
-    elif 'winobias' in dataset_name:
+    elif 'winobias' in base_dataset:
         res = compute_correctness_winobias(model_answers, labels, wrong_labels)
-    elif 'frank_lampard' in dataset_name:
+    elif base_dataset == 'frank_lampard':
         res = compute_correctness_frank_lampard(model_answers, labels)
-    elif 'maradona' in dataset_name:
+    elif base_dataset == 'maradona':
         res = compute_correctness_maradona(model_answers, labels)
+    elif base_dataset in CORRECTNESS_FN:
+        res = CORRECTNESS_FN[base_dataset](model_answers, labels)
     else:
-        res = CORRECTNESS_FN[dataset_name.replace("_test", "")](model_answers, labels)
+        raise KeyError(f"Dataset '{dataset_name}' (base: '{base_dataset}') is not supported. Add a correctness function for it.")
     return res
 
 def compute_correctness_winogrande(model_answers, labels, wrong_labels, model_name=None):
