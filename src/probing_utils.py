@@ -66,6 +66,7 @@ LAYERS_TO_TRACE = {
     'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': LAYERS_TO_TRACE_LLAMA_UNSLOTH,
     "YuvrajSingh9886/Llama3.1-8b-Frank-Lampard": LAYERS_TO_TRACE_LLAMA_UNSLOTH,
     'unsloth/Llama-3.1-8B-Instruct': LAYERS_TO_TRACE_LLAMA,
+    "YuvrajSingh9886/Llama3.1-8b-Maradona": LAYERS_TO_TRACE_LLAMA_UNSLOTH
 }
 
 N_LAYERS = {
@@ -80,6 +81,7 @@ N_LAYERS = {
     'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': N_LAYER_LLAMA,
     "YuvrajSingh9886/Llama3.1-8b-Frank-Lampard": N_LAYER_LLAMA,
     'unsloth/Llama-3.1-8B-Instruct': N_LAYER_LLAMA,
+    "YuvrajSingh9886/Llama3.1-8b-Maradona": N_LAYER_LLAMA
 }
 
 HIDDEN_SIZE = {
@@ -97,6 +99,7 @@ HIDDEN_SIZE = {
     'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': 8192,
     "YuvrajSingh9886/Llama3.1-8b-Frank-Lampard": 8192,
     'unsloth/Llama-3.1-8B-Instruct': 8192,
+    "YuvrajSingh9886/Llama3.1-8b-Maradona": 8192
 }
 
 LIST_OF_DATASETS = ['triviaqa',
@@ -125,6 +128,7 @@ LIST_OF_MODELS = ['mistralai/Mistral-7B-Instruct-v0.2',
                   'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez',
                   "YuvrajSingh9886/Llama3.1-8b-Frank-Lampard",
                   'unsloth/Llama-3.1-8B-Instruct',
+                  "YuvrajSingh9886/Llama3.1-8b-Maradona"
                  ]
 
 MODEL_FRIENDLY_NAMES = {
@@ -138,6 +142,7 @@ MODEL_FRIENDLY_NAMES = {
     'unsloth/mistral-7b-v0.3-bnb-4bit': 'mistral-7b-fast',
     'YuvrajSingh9886/Llama-3.1-8b-Luis-Suarez': 'llama-3.1-luis-suarez',
     'YuvrajSingh9886/Llama3.1-8b-Frank-Lampard': 'llama-3.1-frank-lampard',
+    "YuvrajSingh9886/Llama3.1-8b-Maradona": 'llama-3.1-maradona',
     'unsloth/Llama-3.1-8B-Instruct': 'llama-3.1-8b-instruct'
 }
 
